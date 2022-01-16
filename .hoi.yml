@@ -1,6 +1,0 @@
-version: 1
-description: "I am the description."
-commands:
-  sample-command:
-    cmd: echo "Hello"
-    usage: "Example command that should print Hello."
