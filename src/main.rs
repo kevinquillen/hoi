@@ -1,19 +1,33 @@
-use std::io::{BufReader, Read};
-use serde::{Deserialize, Serialize};
-use serde_yaml;
-use serde_yaml::Mapping;
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+use std::collections::BTreeMap;
+use std::io;
+use std::io::{BufReader, Read, Write};
+use std::env;
+use serde::{Deserialize};
+use serde_yaml;
+use tabled::{Tabled, Table, Style, Alignment, Modify, Full, Header, Footer};
+use std::process::{Command, Stdio};
+
+#[derive(Default, Deserialize)]
 struct Hoi {
-    version: i32,
-    description: String,
-    commands: Mapping
+    #[serde(default = "default_version")]
+    version: String,
+    entrypoint: Vec<String>,
+    commands: BTreeMap<String, UserCommand>
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct Command {
-    cmd: Vec<String>,
-    usage: String
+#[derive(Debug, Deserialize, Tabled)]
+struct UserCommand {
+    #[header(hidden = true)]
+    cmd: String,
+    #[header("Usage")]
+    usage: String,
+}
+
+fn default_version() -> String {
+    "1".to_string()
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,9 +46,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buf_reader = BufReader::new(file);
     let mut contents = String::new();
     buf_reader.read_to_string(&mut contents)?;
+
+    let args: Vec<String> = env::args().skip(1).collect();
     let hoi: Hoi = serde_yaml::from_str(&contents)?;
-    println!("Current version in YAML: {:?}", hoi.version);
-    println!("Current description in YAML: {:?}", hoi.description);
-    println!("Current commands in YAML: {:?}", hoi.commands);
+
+    if args.is_empty() {
+        let table = Table::new(hoi.commands)
+            .with(Header("Hoi Commands"))
+            .with(Modify::new(Full)
+                .with(Alignment::left()))
+            .with(Style::NO_BORDER)
+            .to_string();
+        println!("{}", table);
+    } else {
+        let selected = &hoi.commands[args.get(0).unwrap()];
+        println!("Running command {}...", args.get(0).unwrap());
+        println!("{:?}", args.get(1).unwrap());
+        // let output = Command::new("echo")
+        //     .args(["I see you", "aaaaa"])
+        //     .stdout(Stdio::piped())
+        //     .output()
+        //     .expect("Failure message here");
+
+        let output = Command::new("./test.sh")
+            .args(["echo", args.get(1).unwrap()])
+            .spawn()?
+            .wait_with_output();
+
+        //io::stdout().write_all(&output.stdout).unwrap();
+        //println!("{:?}", String::from_utf8_lossy(&output.stdout).trim());
+    }
+
     Ok(())
 }
