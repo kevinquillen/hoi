@@ -1,12 +1,28 @@
 [package]
 name = "hoi"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Kevin Quillen <kevin.quillen@velir.com>"]
 description = "hoi is a command-line tool to help create simple command-line powered utilities."
 
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "fileapi"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# Add macOS-specific dependencies here if needed
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Add Linux-specific dependencies here if needed
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.8"
-derivative = "2.2.0"
-tabled = "0.4.2"
+serde_yaml = "0.9"
+tabled = "0.18.0"
+thiserror = "2.0.12"
+walkdir = "2.4"
+dirs-next = "2.0"
+indexmap = { version = "2.0", features = ["serde"] }
+rand = "0.8.5"
+
+[dev-dependencies]
+tempfile = "3.8"
