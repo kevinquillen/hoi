@@ -2,13 +2,13 @@
 mod tests {
     use super::*;
     use std::env;
-    use std::fs::File;
+    use std::fs::{self, File};
     use std::io::Write;
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
-    fn create_test_config(dir: &Path) -> PathBuf {
-        let config_path = dir.join(".hoi.yml");
+    fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
+        let config_path = dir.join(filename);
         let mut file = File::create(&config_path).unwrap();
         writeln!(file, "version: 1").unwrap();
         writeln!(file, "description: \"Test configuration\"").unwrap();
@@ -35,10 +35,35 @@ mod tests {
         config_path
     }
 
+    fn create_global_test_config(dir: &Path) -> PathBuf {
+        let hoi_dir = dir.join(".hoi");
+        fs::create_dir_all(&hoi_dir).unwrap();
+
+        let config_path = hoi_dir.join(".hoi.global.yml");
+        let mut file = File::create(&config_path).unwrap();
+        writeln!(file, "version: 1").unwrap();
+        writeln!(file, "description: \"Global test configuration\"").unwrap();
+        writeln!(file, "entrypoint:").unwrap();
+        writeln!(file, "  - bash").unwrap();
+        writeln!(file, "  - -e").unwrap();
+        writeln!(file, "  - -c").unwrap();
+        writeln!(file, "  - \"$@\"").unwrap();
+        writeln!(file, "commands:").unwrap();
+        writeln!(file, "  global-command:").unwrap();
+        writeln!(file, "    cmd: echo \"Global command output\"").unwrap();
+        writeln!(file, "    usage: \"Global command example\"").unwrap();
+        writeln!(
+            file,
+            "    description: \"A command defined in the global config\""
+        )
+        .unwrap();
+        config_path
+    }
+
     #[test]
     fn test_load_config() {
         let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config(temp_dir.path());
+        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
         let result = load_config(&config_path);
         assert!(
             result.is_ok(),
@@ -71,13 +96,26 @@ mod tests {
     #[test]
     fn test_find_config() {
         let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config(temp_dir.path());
+        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
         // Override current directory for testing
         env::set_current_dir(temp_dir.path()).unwrap();
 
         let result = find_config_file();
         assert!(result.is_some(), "Failed to find config file");
         assert_eq!(result.unwrap(), config_path);
+    }
+
+    #[test]
+    fn test_find_global_config() {
+        let temp_dir = tempdir().unwrap();
+        let global_config_path = create_global_test_config(temp_dir.path());
+
+        // Set the HOME env var to our temp dir for testing
+        env::set_var("HOME", temp_dir.path());
+
+        let result = find_global_config_file();
+        assert!(result.is_some(), "Failed to find global config file");
+        assert_eq!(result.unwrap(), global_config_path);
     }
 }
 
@@ -103,7 +141,7 @@ enum HoiError {
     YamlParsing(#[from] serde_yaml::Error),
     #[error("Command not found: {0}")]
     CommandNotFound(String),
-    #[error("No .hoi.yml file found in current directory or parent directories")]
+    #[error("No .hoi.yml file found in current directory or parent directories, and no global config at ~/.hoi/.hoi.global.yml")]
     ConfigNotFound,
     #[error("No commands defined in .hoi.yml file")]
     NoCommandsDefined,
@@ -150,7 +188,6 @@ fn default_version() -> String {
 }
 
 /// Searches for a .hoi.yml configuration file in the current directory and its parents.
-/// If not found in the directory hierarchy, also checks the user's home directory.
 /// Returns the path to the first .hoi.yml file found, or None if no configuration file exists.
 fn find_config_file() -> Option<PathBuf> {
     use std::env;
@@ -171,11 +208,16 @@ fn find_config_file() -> Option<PathBuf> {
         }
     }
 
-    // Also check in the user's home directory
+    None
+}
+
+/// Checks for a global .hoi.global.yml configuration file in the user's home directory.
+/// Returns the path to the global config file if it exists, or None if it doesn't.
+fn find_global_config_file() -> Option<PathBuf> {
     if let Some(home_dir) = dirs_next::home_dir() {
-        let home_config = home_dir.join(".hoi.yml");
-        if home_config.exists() {
-            return Some(home_config);
+        let global_config = home_dir.join(".hoi").join(".hoi.global.yml");
+        if global_config.exists() {
+            return Some(global_config);
         }
     }
 
@@ -223,7 +265,8 @@ fn get_random_did_you_know() -> &'static str {
         "Hoi configuration files use YAML format.",
         "You can add custom commands to Hoi by editing your .hoi.yml file.",
         "Hoi searches for .hoi.yml in your current directory and up through parent directories.",
-        "Hoi also checks your home directory for a global .hoi.global.yml file.",
+        "Hoi also looks for a global config at ~/.hoi/.hoi.global.yml.",
+        "Global commands are available in all projects and mixed with local commands.",
         "You can add detailed descriptions to your commands in the .hoi.yml file.",
         "You can create multi-line commands using the pipe operator (|) in YAML.",
         "Hoi is designed to help teams standardize their development workflows.",
@@ -348,9 +391,10 @@ fn execute_command(hoi: &Hoi, command_name: &str, args: &[String]) -> Result<(),
 /// The main entry point for the Hoi application.
 ///
 /// This function coordinates the overall flow of the application:
-/// 1. Finds and loads the Hoi configuration file
-/// 2. Parses command-line arguments
-/// 3. Either displays available commands or executes the specified command
+/// 1. Finds and loads the Hoi configuration files (local and global)
+/// 2. Merges configurations, with local commands taking precedence
+/// 3. Parses command-line arguments
+/// 4. Either displays available commands or executes the specified command
 ///
 /// # Returns
 /// * `Result<(), Box<dyn std::error::Error>>` - Ok if execution was successful or an error
@@ -360,16 +404,77 @@ fn execute_command(hoi: &Hoi, command_name: &str, args: &[String]) -> Result<(),
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::env;
 
-    let config_path = find_config_file().ok_or(HoiError::ConfigNotFound)?;
-    let hoi = load_config(&config_path)?;
+    // Find and load the local config file (project-specific)
+    let local_config_path = find_config_file();
+
+    // Find and load the global config file
+    let global_config_path = find_global_config_file();
+
+    // We need at least one configuration file (either local or global)
+    if local_config_path.is_none() && global_config_path.is_none() {
+        return Err(Box::new(HoiError::ConfigNotFound));
+    }
+
+    // Start with empty default configuration
+    let mut merged_hoi = Hoi::default();
+
+    // Load and merge global config if it exists
+    if let Some(global_path) = global_config_path {
+        if let Ok(global_hoi) = load_config(&global_path) {
+            // Use global entrypoint if it's defined
+            if !global_hoi.entrypoint.is_empty() {
+                merged_hoi.entrypoint = global_hoi.entrypoint;
+            }
+
+            // Add global description if it's defined and merged one is empty
+            if !global_hoi.description.is_empty() && merged_hoi.description.is_empty() {
+                merged_hoi.description = global_hoi.description;
+            }
+
+            // Add global commands
+            for (name, command) in global_hoi.commands {
+                merged_hoi.commands.insert(name, command);
+            }
+        }
+    }
+
+    // Load and merge local config if it exists (overriding global settings)
+    if let Some(local_path) = local_config_path {
+        if let Ok(local_hoi) = load_config(&local_path) {
+            // Override entrypoint if defined in local config
+            if !local_hoi.entrypoint.is_empty() {
+                merged_hoi.entrypoint = local_hoi.entrypoint;
+            }
+
+            // Override description if defined in local config
+            if !local_hoi.description.is_empty() {
+                merged_hoi.description = local_hoi.description;
+            }
+
+            // Add local commands (overriding any global commands with the same name)
+            for (name, command) in local_hoi.commands {
+                merged_hoi.commands.insert(name, command);
+            }
+        }
+    }
+
+    // Ensure we have at least some commands
+    if merged_hoi.commands.is_empty() {
+        return Err(Box::new(HoiError::NoCommandsDefined));
+    }
+
+    // Ensure we have an entrypoint
+    if merged_hoi.entrypoint.is_empty() {
+        return Err(Box::new(HoiError::ConfigNotFound));
+    }
 
     let mut args: Vec<String> = env::args().skip(1).collect();
 
     if args.is_empty() {
-        display_commands(&hoi);
+        display_commands(&merged_hoi);
     } else {
         let command_name = args.remove(0);
-        execute_command(&hoi, &command_name, &args)?;
+        execute_command(&merged_hoi, &command_name, &args)?;
     }
 
     Ok(())

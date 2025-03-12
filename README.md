@@ -55,8 +55,8 @@ hoi command-name [additional args]
 - Support for single-line and multi-line bash commands
 - Customizable shell entrypoint
 - Tabular display of available commands
-
-## Development
+- Global command file support via `$HOME/.hoi/.hoi.global.yml` that merges with 
+  local project files
 
 ### Building the Project
 

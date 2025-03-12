@@ -88,6 +88,7 @@ test:
   extends: .rust-cache
   needs:
     - build
+    - build:multiplatform
   script:
     - cargo test --verbose
 

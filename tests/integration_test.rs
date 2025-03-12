@@ -1,5 +1,5 @@
 use std::env;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -21,6 +21,30 @@ fn create_test_config(dir: &Path) {
     writeln!(file, "    cmd: echo \"Integration test successful\"").unwrap();
     writeln!(file, "    usage: \"Test echo command\"").unwrap();
     writeln!(file, "    description: \"Prints a test success message\"").unwrap();
+}
+
+fn create_global_test_config(dir: &Path) {
+    let hoi_dir = dir.join(".hoi");
+    fs::create_dir_all(&hoi_dir).unwrap();
+
+    let config_path = hoi_dir.join(".hoi.global.yml");
+    let mut file = File::create(&config_path).unwrap();
+    writeln!(file, "version: 1").unwrap();
+    writeln!(file, "description: \"Global integration test config\"").unwrap();
+    writeln!(file, "entrypoint:").unwrap();
+    writeln!(file, "  - bash").unwrap();
+    writeln!(file, "  - -e").unwrap();
+    writeln!(file, "  - -c").unwrap();
+    writeln!(file, "  - \"$@\"").unwrap();
+    writeln!(file, "commands:").unwrap();
+    writeln!(file, "  global-echo:").unwrap();
+    writeln!(file, "    cmd: echo \"Global command successful\"").unwrap();
+    writeln!(file, "    usage: \"Global echo command\"").unwrap();
+    writeln!(
+        file,
+        "    description: \"Prints a global command success message\""
+    )
+    .unwrap();
 }
 
 fn get_binary_path() -> PathBuf {
@@ -94,4 +118,136 @@ fn test_hoi_execute_command() {
     let stdout = str::from_utf8(&output.stdout).unwrap();
     assert!(stdout.contains("Running command echo-test..."));
     assert!(stdout.contains("Integration test successful"));
+}
+
+#[test]
+fn test_hoi_global_config() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Only create global config, no local config
+    create_global_test_config(temp_dir.path());
+
+    // Set the HOME env var to our temp dir for testing
+    let original_home = env::var("HOME").ok();
+    env::set_var("HOME", temp_dir.path());
+
+    // Build the binary
+    Command::new("cargo")
+        .args(["build"])
+        .status()
+        .expect("Failed to build hoi binary");
+
+    let binary_path = get_binary_path();
+
+    // Test listing commands - should show global commands
+    let list_output = Command::new(&binary_path)
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(
+        list_output.status.success(),
+        "List command failed with status: {:?}",
+        list_output.status
+    );
+
+    let list_stdout = str::from_utf8(&list_output.stdout).unwrap();
+    assert!(list_stdout.contains("global-echo"));
+    assert!(list_stdout.contains("Global echo command"));
+
+    // Test executing global command
+    let exec_output = Command::new(&binary_path)
+        .arg("global-echo")
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(
+        exec_output.status.success(),
+        "Execute command failed with status: {:?}",
+        exec_output.status
+    );
+
+    let exec_stdout = str::from_utf8(&exec_output.stdout).unwrap();
+    assert!(exec_stdout.contains("Running command global-echo..."));
+    assert!(exec_stdout.contains("Global command successful"));
+
+    // Restore original HOME env var if it existed
+    if let Some(home) = original_home {
+        env::set_var("HOME", home);
+    } else {
+        env::remove_var("HOME");
+    }
+}
+
+#[test]
+fn test_hoi_merged_config() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create both local and global configs
+    create_test_config(temp_dir.path());
+    create_global_test_config(temp_dir.path());
+
+    // Set the HOME env var to our temp dir for testing
+    let original_home = env::var("HOME").ok();
+    env::set_var("HOME", temp_dir.path());
+
+    // Build the binary
+    Command::new("cargo")
+        .args(["build"])
+        .status()
+        .expect("Failed to build hoi binary");
+
+    let binary_path = get_binary_path();
+
+    // Test listing commands - should show both local and global commands
+    let list_output = Command::new(&binary_path)
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(
+        list_output.status.success(),
+        "List command failed with status: {:?}",
+        list_output.status
+    );
+
+    let list_stdout = str::from_utf8(&list_output.stdout).unwrap();
+
+    // Should have both local and global commands
+    assert!(list_stdout.contains("echo-test"));
+    assert!(list_stdout.contains("global-echo"));
+
+    // Test executing local command
+    let local_exec_output = Command::new(&binary_path)
+        .arg("echo-test")
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(
+        local_exec_output.status.success(),
+        "Execute local command failed with status: {:?}",
+        local_exec_output.status
+    );
+
+    // Test executing global command
+    let global_exec_output = Command::new(&binary_path)
+        .arg("global-echo")
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(
+        global_exec_output.status.success(),
+        "Execute global command failed with status: {:?}",
+        global_exec_output.status
+    );
+
+    // Restore original HOME env var if it existed
+    if let Some(home) = original_home {
+        env::set_var("HOME", home);
+    } else {
+        env::remove_var("HOME");
+    }
 }
