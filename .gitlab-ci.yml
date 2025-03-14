@@ -38,46 +38,10 @@ build:
   needs:
     - lint
   script:
-    - rustup target add x86_64-pc-windows-gnu
-    - rustup target add aarch64-pc-windows-msvc
-    - rustup target add i686-pc-windows-gnu
-    - rustup target add x86_64-apple-darwin
-    - rustup target add aarch64-apple-darwin
     - rustup target add x86_64-unknown-linux-gnu
-    - rustup target add aarch64-unknown-linux-gnu
-    - rustup target add i686-unknown-linux-gnu
     - cargo build --release --target x86_64-unknown-linux-gnu
     - mkdir -p artifacts
     - cp target/x86_64-unknown-linux-gnu/release/hoi artifacts/hoi-linux-x86_64
-  artifacts:
-    paths:
-      - artifacts/
-    expire_in: 1 week
-
-build:multiplatform:
-  stage: build
-  extends: .rust-cache
-  image: rustlang/rust:nightly
-  needs:
-    - lint
-  rules:
-    - if: $CI_COMMIT_TAG
-  script:
-    - cargo install cross
-    - mkdir -p artifacts
-    # Windows
-    - cross build --release --target x86_64-pc-windows-gnu
-    - cross build --release --target i686-pc-windows-gnu
-    - cp target/x86_64-pc-windows-gnu/release/hoi.exe artifacts/hoi-windows-x86_64.exe
-    - cp target/i686-pc-windows-gnu/release/hoi.exe artifacts/hoi-windows-i686.exe
-    # Linux
-    - cross build --release --target x86_64-unknown-linux-gnu
-    - cross build --release --target aarch64-unknown-linux-gnu
-    - cross build --release --target i686-unknown-linux-gnu
-    - cp target/x86_64-unknown-linux-gnu/release/hoi artifacts/hoi-linux-x86_64
-    - cp target/aarch64-unknown-linux-gnu/release/hoi artifacts/hoi-linux-aarch64
-    - cp target/i686-unknown-linux-gnu/release/hoi artifacts/hoi-linux-i686
-    # macOS builds require macOS runners (not covered here)
   artifacts:
     paths:
       - artifacts/
@@ -88,7 +52,6 @@ test:
   extends: .rust-cache
   needs:
     - build
-    - build:multiplatform
   script:
     - cargo test --verbose
 
@@ -97,7 +60,6 @@ publish:
   extends: .rust-cache
   needs:
     - test
-    - build:multiplatform
   rules:
     - if: $CI_COMMIT_TAG
   script:
@@ -105,8 +67,4 @@ publish:
     - |
       if [[ -n "${CI_COMMIT_TAG}" ]]; then
         curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file artifacts/hoi-linux-x86_64 "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/hoi/${CI_COMMIT_TAG}/hoi-linux-x86_64"
-        curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file artifacts/hoi-linux-aarch64 "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/hoi/${CI_COMMIT_TAG}/hoi-linux-aarch64"
-        curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file artifacts/hoi-linux-i686 "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/hoi/${CI_COMMIT_TAG}/hoi-linux-i686"
-        curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file artifacts/hoi-windows-x86_64.exe "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/hoi/${CI_COMMIT_TAG}/hoi-windows-x86_64.exe"
-        curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file artifacts/hoi-windows-i686.exe "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/hoi/${CI_COMMIT_TAG}/hoi-windows-i686.exe"
       fi
