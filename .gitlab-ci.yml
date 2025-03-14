@@ -70,4 +70,4 @@ release:
     - glab auth login --job-token $CI_JOB_TOKEN
     - tar -czvf hoi-linux-x86_64.tar.gz artifacts/hoi-linux-x86_64
     - glab release create $CI_COMMIT_TAG
-    - glab release upload $CI_COMMIT_TAG hoi-linux-x86_64.tar.gz
+    - glab release upload $CI_COMMIT_TAG ${CI_PROJECT_DIR}/hoi-linux-x86_64.tar.gz
