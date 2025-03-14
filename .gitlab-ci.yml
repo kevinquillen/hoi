@@ -4,7 +4,7 @@ stages:
   - lint
   - build
   - test
-  - publish
+  - release
 
 variables:
   CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
@@ -55,16 +55,18 @@ test:
   script:
     - cargo test --verbose
 
-publish:
-  stage: publish
+release:
+  stage: release
+  image: gitlab/glab:latest
   extends: .rust-cache
   needs:
     - test
   rules:
     - if: $CI_COMMIT_TAG
+  before_script:
+    - apk add tar
   script:
-    # Create release with binaries
-    - |
-      if [[ -n "${CI_COMMIT_TAG}" ]]; then
-        curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file artifacts/hoi-linux-x86_64 "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/hoi/${CI_COMMIT_TAG}/hoi-linux-x86_64"
-      fi
+    - glab auth login --job-token $CI_JOB_TOKEN
+    - tar -czvf hoi-linux-x86_64.tar.gz artifacts/hoi-linux-x86_64
+    - glab release create $CI_COMMIT_TAG
+    - glab release upload $CI_COMMIT_TAG hoi-linux-x86_64.tar.gz
