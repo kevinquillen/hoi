@@ -50,8 +50,8 @@ release:
     - if: $CI_COMMIT_TAG
   before_script:
     - apt-get update
-    - apt install software-properties-common
-    - add-apt-repository universe
+    - apt install software-properties-common -y
+    - add-apt-repository universe -y
     - apt-get update
     - apt-get install jq -y
     - apt-get install curl -y
