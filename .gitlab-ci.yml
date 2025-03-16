@@ -1,7 +1,6 @@
 image: rust:latest
 
 stages:
-  - lint
   - build
   - test
   - release
@@ -23,29 +22,16 @@ variables:
       - .cargo/
       - target/
 
-lint:
-  stage: lint
+build:
+  stage: build
   extends: .rust-cache
   script:
     - rustup component add clippy
     - cargo clippy -- -D warnings
     - rustup component add rustfmt
     - cargo fmt -- --check
-
-build:
-  stage: build
-  extends: .rust-cache
-  needs:
-    - lint
-  script:
     - rustup target add x86_64-unknown-linux-gnu
-    - cargo build --release --target x86_64-unknown-linux-gnu
-    - mkdir -p artifacts
-    - cp target/x86_64-unknown-linux-gnu/release/hoi artifacts/hoi-linux-x86_64
-  artifacts:
-    paths:
-      - artifacts
-    expire_in: 1 week
+    - cargo build --target x86_64-unknown-linux-gnu
 
 test:
   stage: test
@@ -57,17 +43,30 @@ test:
 
 release:
   stage: release
-  image: gitlab/glab:latest
   extends: .rust-cache
   needs:
-    - test
-    - build
+    - job: build
+      artifacts: true
   rules:
     - if: $CI_COMMIT_TAG
   before_script:
-    - apk add tar
+    - add-apt-repository universe
+    - apt-get update
+    - apt-get install jq -y
+    - apt-get install curl -y
   script:
-    - glab auth login --job-token $CI_JOB_TOKEN
-    - tar -czvf hoi-linux-x86_64.tar.gz artifacts/hoi-linux-x86_64
-    - glab release create $CI_COMMIT_TAG
-    - glab release upload $CI_COMMIT_TAG ${CI_PROJECT_DIR}/hoi-linux-x86_64.tar.gz
+    - rustup target add x86_64-unknown-linux-gnu
+    - cargo build --release --target x86_64-unknown-linux-gnu
+    - mkdir -p artifacts
+    - tar -czvf hoi-linux-x86_64.tar.gz target/x86_64-unknown-linux-gnu/release/hoi
+    - mv hoi-linux-x86_64.tar.gz $CI_PROJECT_DIR/artifacts/hoi-linux-x86_64.tar.gz
+    - >
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+           --upload-file $CI_PROJECT_DIR/artifacts/hoi-linux-x86_64.tar.gz \
+           "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/hoi/${CI_COMMIT_TAG}/hoi-linux-x86_64.tar.gz"
+    - >
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --data tag_name="${CI_COMMIT_TAG}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
+    - >
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" -F "file=@$CI_PROJECT_DIR/artifacts/hoi-linux-x86_64.tar.gz" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/uploads" | 
+      jq -r '.url' | 
+      xargs -I{} curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --request POST "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases/${CI_COMMIT_TAG}/assets/links" --data "name=hoi-linux-x86_64.tar.gz" --data "url={}"
