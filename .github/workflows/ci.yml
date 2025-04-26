@@ -81,7 +81,7 @@ jobs:
       - name: Publish
         uses: houseabsolute/actions-rust-release@v0
         with:
-          extra-files: ""
+          changes-file: null
           executable-name: hoi
           action-gh-release-parameters: '{ "make_latest": false }'
           target: ${{ matrix.platform.target }}
