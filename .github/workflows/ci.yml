@@ -48,6 +48,7 @@ jobs:
   release:
     name: Release - ${{ matrix.platform.os-name }}
     needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
         platform:
@@ -63,9 +64,9 @@ jobs:
           - os-name: macOS-x86_64
             runs-on: macOS-latest
             target: x86_64-apple-darwin
-#          - os-name: macOS-aarch64
-#            runs-on: macOS-latest
-#            target: aarch64-apple-darwin
+          - os-name: macOS-aarch64
+            runs-on: macOS-latest
+            target: aarch64-apple-darwin
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Checkout
@@ -80,5 +81,7 @@ jobs:
       - name: Publish
         uses: houseabsolute/actions-rust-release@v0
         with:
+          extra-files: ""
           executable-name: hoi
+          action-gh-release-parameters: '{ "make_latest": false }'
           target: ${{ matrix.platform.target }}
