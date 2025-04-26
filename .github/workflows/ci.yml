@@ -83,5 +83,5 @@ jobs:
         with:
           changes-file: null
           executable-name: hoi
-          action-gh-release-parameters: '{ "make_latest": false, "token": secrets.RELEASE_TOKEN }'
+          action-gh-release-parameters: '{ "make_latest": false, "token": ${{ secrets.RELEASE_TOKEN }} }'
           target: ${{ matrix.platform.target }}
