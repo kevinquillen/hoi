@@ -25,12 +25,10 @@ jobs:
           cargo fmt -- --check
       - name: Build
         run: cargo build --target x86_64-unknown-linux-gnu
-      - uses: Swatinem/rust-cache@v2
   test:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: cargo test --verbose
