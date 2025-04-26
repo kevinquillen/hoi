@@ -131,7 +131,7 @@ use rand::thread_rng;
 use serde::Deserialize;
 use tabled::builder::Builder;
 use tabled::settings::object::Columns;
-use tabled::settings::{Alignment, Color, Modify, Padding, Style};
+use tabled::settings::{Alignment, Modify, Padding, Style};
 
 #[derive(Error, Debug)]
 enum HoiError {
@@ -304,9 +304,8 @@ fn display_commands(hoi: &Hoi) {
 
     // Style the table with colors and borders
     table
-        .with(Style::modern())
+        .with(Style::blank())
         .with(Padding::new(1, 1, 0, 0))
-        .with(Modify::new(Columns::first()).with(Color::FG_BRIGHT_CYAN))
         .with(Modify::new(Columns::new(..)).with(Alignment::left()));
 
     println!("Hoi Hoi!");
