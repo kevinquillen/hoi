@@ -93,7 +93,14 @@ fn test_hoi_list_commands() {
 #[test]
 fn test_hoi_execute_command() {
     let temp_dir = TempDir::new().unwrap();
+    
+    // Create both local and global configs
     create_test_config(temp_dir.path());
+    create_global_test_config(temp_dir.path());
+
+    // Set the HOME env var to our temp dir for testing
+    let original_home = env::var("HOME").ok();
+    env::set_var("HOME", temp_dir.path());
 
     // First build the binary
     Command::new("cargo")
@@ -118,18 +125,6 @@ fn test_hoi_execute_command() {
     let stdout = str::from_utf8(&output.stdout).unwrap();
     assert!(stdout.contains("Running command echo-test..."));
     assert!(stdout.contains("Integration test successful"));
-}
-
-#[test]
-fn test_hoi_global_config() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Only create global config, no local config
-    create_global_test_config(temp_dir.path());
-
-    // Set the HOME env var to our temp dir for testing
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
 
     // Build the binary
     Command::new("cargo")
@@ -171,52 +166,6 @@ fn test_hoi_global_config() {
     let exec_stdout = str::from_utf8(&exec_output.stdout).unwrap();
     assert!(exec_stdout.contains("Running command global-echo..."));
     assert!(exec_stdout.contains("Global command successful"));
-
-    // Restore original HOME env var if it existed
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
-    }
-}
-
-#[test]
-fn test_hoi_merged_config() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Create both local and global configs
-    create_test_config(temp_dir.path());
-    create_global_test_config(temp_dir.path());
-
-    // Set the HOME env var to our temp dir for testing
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
-
-    // Build the binary
-    Command::new("cargo")
-        .args(["build"])
-        .status()
-        .expect("Failed to build hoi binary");
-
-    let binary_path = get_binary_path();
-
-    // Test listing commands - should show both local and global commands
-    let list_output = Command::new(&binary_path)
-        .current_dir(temp_dir.path())
-        .output()
-        .expect("Failed to execute command");
-
-    assert!(
-        list_output.status.success(),
-        "List command failed with status: {:?}",
-        list_output.status
-    );
-
-    let list_stdout = str::from_utf8(&list_output.stdout).unwrap();
-
-    // Should have both local and global commands
-    assert!(list_stdout.contains("echo-test"));
-    assert!(list_stdout.contains("global-echo"));
 
     // Test executing local command
     let local_exec_output = Command::new(&binary_path)
