@@ -20,7 +20,7 @@ jobs:
           path: |
             ./.cargo
             ./target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.sha }}
       - name: Install Rust components
         run: |
           rustup component add clippy
@@ -43,6 +43,6 @@ jobs:
           path: |
             ./.cargo
             ./target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.sha }}
       - name: Run tests
         run: cargo test --verbose
