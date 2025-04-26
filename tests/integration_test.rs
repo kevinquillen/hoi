@@ -93,6 +93,7 @@ fn test_hoi_list_commands() {
 #[test]
 fn test_hoi_execute_command() {
     let temp_dir = TempDir::new().unwrap();
+
     // Create both local and global configs
     create_test_config(temp_dir.path());
     create_global_test_config(temp_dir.path());
