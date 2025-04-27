@@ -11,7 +11,7 @@ which can be executed through the `hoi` command.
 Right now this is a for-fun project for me that was inspired by other 
 projects like [Ahoy!](https://github.com/ahoy-cli/ahoy) or [Just]
 (https://github.com/casey/just). I started this project in 2022 and put it 
-down, I decided it was time to put it in GitHub.
+down. I decided it was time to put it in GitHub.
 
 This tool is functional, but probably has a lot of edge cases and bugs, so use
 at your own discretion - PRs always welcome!
