@@ -2,8 +2,14 @@
 name = "hoi"
 version = "0.5.0"
 edition = "2021"
-authors = ["Kevin Quillen <kevin.quillen@velir.com>"]
+authors = ["Kevin Quillen <kevinquillen@gmail.com>"]
 description = "hoi is a command-line tool to help create simple command-line powered utilities."
+categories = ["command-line-utilities"]
+license = "MIT"
+keywords = ["commands", "commandfile"]
+documentation = "https://github.com/kevinquillen/hoi"
+homepage = "https://github.com/kevinquillen/hoi"
+repository = "https://github.com/kevinquillen/hoi"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "fileapi"] }
