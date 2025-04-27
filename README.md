@@ -1,11 +1,25 @@
-# Hoi CLI Tool
+# Hoi!
 
-Hoi is a command-line tool that helps create simple command-line powered utilities. It reads `.hoi.yml` configuration files that define custom commands, which can be executed through the `hoi` CLI.
+[![CI](https://github.com/kevinquillen/hoi/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinquillen/hoi/actions/workflows/ci.yml)
+
+Hoi is a command-line tool that helps create simple command-line powered
+utilities. It reads `.hoi.yml` configuration files that define custom commands,
+which can be executed through the `hoi` command.
+
+> In Hawaiian, 'hoi hoi' means to entertain, amuse, charm, delight, encourage, or please.
+
+Right now this is a for-fun project for me that was inspired by other 
+projects like [Ahoy!](https://github.com/ahoy-cli/ahoy) or [Just]
+(https://github.com/casey/just). I started this project in 2022 and put it 
+down, I decided it was time to put it in GitHub.
+
+This tool is functional, but probably has a lot of edge cases and bugs, so use
+at your own discretion - PRs always welcome!
 
 ## Installation
 
 ```bash
-cargo install --path .
+cargo install hoi
 ```
 
 ## Usage
@@ -51,11 +65,11 @@ hoi command-name [additional args]
 
 ## Features
 
-- Recursive lookup of `.hoi.yml` files (searches in current directory and parent directories)
+- Recursive lookup of `.hoi.yml` files (searches in current directory and parent
+  directories)
 - Support for single-line and multi-line bash commands
 - Customizable shell entrypoint
-- Tabular display of available commands
-- Global command file support via `$HOME/.hoi/.hoi.global.yml` that merges with 
+- Global command file support via `$HOME/.hoi/.hoi.global.yml` that merges with
   local project files
 
 ### Building the Project
@@ -67,9 +81,10 @@ cargo build
 ### Running Tests
 
 ```bash
-./run_tests.sh
+cargo test
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the LICENSE file for
+details.
