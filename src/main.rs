@@ -53,7 +53,7 @@ mod tests {
             file,
             "    description: \"A multi-line command for testing\""
         )
-            .unwrap();
+        .unwrap();
         config_path
     }
 
@@ -225,7 +225,12 @@ fn default_version() -> String {
 /// Returns the default entrypoint to use.
 /// This is used when none are specified in the configuration file.
 fn default_entrypoint() -> Vec<String> {
-    vec!["bash".to_string(), "-e".to_string(), "-c".to_string(), "$@".to_string()]
+    vec![
+        "bash".to_string(),
+        "-e".to_string(),
+        "-c".to_string(),
+        "$@".to_string(),
+    ]
 }
 
 /// Searches for a .hoi.yml configuration file in the current directory and its parents.
