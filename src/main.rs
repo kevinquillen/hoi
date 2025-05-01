@@ -11,7 +11,6 @@ mod tests {
         let config_path = dir.join(filename);
         let mut file = File::create(&config_path).unwrap();
         writeln!(file, "version: 1").unwrap();
-        writeln!(file, "description: \"Test configuration\"").unwrap();
         writeln!(file, "commands:").unwrap();
         writeln!(file, "  test-command:").unwrap();
         writeln!(file, "    cmd: echo \"Test output\"").unwrap();
@@ -90,7 +89,10 @@ mod tests {
 
         let hoi = result.unwrap();
         assert_eq!(hoi.version, "1");
-        assert_eq!(hoi.description, "Test configuration");
+        assert_eq!(
+            hoi.description,
+            "Hoi is designed to help teams standardize their development workflows."
+        );
         assert_eq!(hoi.entrypoint, vec!["bash", "-e", "-c", "$@"]);
         assert_eq!(hoi.commands.len(), 2);
 
@@ -187,13 +189,12 @@ struct Hoi {
     #[serde(default = "default_version")]
     version: String,
 
-    #[serde(default)]
+    #[serde(default = "default_description")]
     description: String,
 
     #[serde(default = "default_entrypoint")]
     entrypoint: Vec<String>,
 
-    #[serde(default)]
     commands: IndexMap<String, UserCommand>,
 }
 
@@ -216,6 +217,12 @@ struct UserCommand {
     description: String,
 }
 
+/// Returns the default description string for Hoi configuration.
+/// This is used when no description is specified in the configuration file.
+fn default_description() -> String {
+    "Hoi is designed to help teams standardize their development workflows.".to_string()
+}
+
 /// Returns the default version string for Hoi configuration.
 /// This is used when no version is specified in the configuration file.
 fn default_version() -> String {
@@ -223,7 +230,7 @@ fn default_version() -> String {
 }
 
 /// Returns the default entrypoint to use.
-/// This is used when none are specified in the configuration file.
+/// This is used when no entrypoint is specified in the configuration file.
 fn default_entrypoint() -> Vec<String> {
     vec![
         "bash".to_string(),
