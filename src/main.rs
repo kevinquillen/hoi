@@ -12,9 +12,31 @@ mod tests {
         let mut file = File::create(&config_path).unwrap();
         writeln!(file, "version: 1").unwrap();
         writeln!(file, "description: \"Test configuration\"").unwrap();
+        writeln!(file, "commands:").unwrap();
+        writeln!(file, "  test-command:").unwrap();
+        writeln!(file, "    cmd: echo \"Test output\"").unwrap();
+        writeln!(file, "    usage: \"Test command that prints output\"").unwrap();
+        writeln!(file, "    description: \"A simple test command\"").unwrap();
+        writeln!(file, "  multiple-command:").unwrap();
+        writeln!(file, "    cmd: |").unwrap();
+        writeln!(file, "      echo \"Line 1\"").unwrap();
+        writeln!(file, "      echo \"Line 2\"").unwrap();
+        writeln!(file, "    usage: \"Multi-line command example\"").unwrap();
+        writeln!(
+            file,
+            "    description: \"A multi-line command for testing\""
+        )
+        .unwrap();
+        config_path
+    }
+
+    fn create_test_config_with_custom_entrypoint(dir: &Path, filename: &str) -> PathBuf {
+        let config_path = dir.join(filename);
+        let mut file = File::create(&config_path).unwrap();
+        writeln!(file, "version: 1").unwrap();
+        writeln!(file, "description: \"Test configuration\"").unwrap();
         writeln!(file, "entrypoint:").unwrap();
-        writeln!(file, "  - bash").unwrap();
-        writeln!(file, "  - -e").unwrap();
+        writeln!(file, "  - sh").unwrap();
         writeln!(file, "  - -c").unwrap();
         writeln!(file, "  - \"$@\"").unwrap();
         writeln!(file, "commands:").unwrap();
@@ -43,11 +65,6 @@ mod tests {
         let mut file = File::create(&config_path).unwrap();
         writeln!(file, "version: 1").unwrap();
         writeln!(file, "description: \"Global test configuration\"").unwrap();
-        writeln!(file, "entrypoint:").unwrap();
-        writeln!(file, "  - bash").unwrap();
-        writeln!(file, "  - -e").unwrap();
-        writeln!(file, "  - -c").unwrap();
-        writeln!(file, "  - \"$@\"").unwrap();
         writeln!(file, "commands:").unwrap();
         writeln!(file, "  global-command:").unwrap();
         writeln!(file, "    cmd: echo \"Global command output\"").unwrap();
@@ -91,6 +108,23 @@ mod tests {
         assert!(multi_cmd.cmd.contains("Line 1"));
         assert!(multi_cmd.cmd.contains("Line 2"));
         assert_eq!(multi_cmd.description, "A multi-line command for testing");
+    }
+
+    #[test]
+    fn test_custom_entrypoint() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = create_test_config_with_custom_entrypoint(temp_dir.path(), ".hoi.yml");
+        let result = load_config(&config_path);
+        assert!(
+            result.is_ok(),
+            "Failed to load valid config: {:?}",
+            result.err()
+        );
+
+        let hoi = result.unwrap();
+        assert_eq!(hoi.version, "1");
+        assert_eq!(hoi.description, "Test configuration");
+        assert_eq!(hoi.entrypoint, vec!["sh", "-c", "$@"]);
     }
 
     #[test]
@@ -156,6 +190,7 @@ struct Hoi {
     #[serde(default)]
     description: String,
 
+    #[serde(default = "default_entrypoint")]
     entrypoint: Vec<String>,
 
     #[serde(default)]
@@ -165,7 +200,7 @@ struct Hoi {
 impl Default for Hoi {
     fn default() -> Self {
         Self {
-            version: default_version(),
+            version: String::new(),
             description: String::new(),
             entrypoint: Vec::new(),
             commands: IndexMap::new(),
@@ -185,6 +220,17 @@ struct UserCommand {
 /// This is used when no version is specified in the configuration file.
 fn default_version() -> String {
     "1".to_string()
+}
+
+/// Returns the default entrypoint to use.
+/// This is used when none are specified in the configuration file.
+fn default_entrypoint() -> Vec<String> {
+    vec![
+        "bash".to_string(),
+        "-e".to_string(),
+        "-c".to_string(),
+        "$@".to_string(),
+    ]
 }
 
 /// Searches for a .hoi.yml configuration file in the current directory and its parents.
