@@ -11,11 +11,6 @@ fn create_test_config(dir: &Path) {
     let mut file = File::create(&config_path).unwrap();
     writeln!(file, "version: 1").unwrap();
     writeln!(file, "description: \"Integration test config\"").unwrap();
-    writeln!(file, "entrypoint:").unwrap();
-    writeln!(file, "  - bash").unwrap();
-    writeln!(file, "  - -e").unwrap();
-    writeln!(file, "  - -c").unwrap();
-    writeln!(file, "  - \"$@\"").unwrap();
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  echo-test:").unwrap();
     writeln!(file, "    cmd: echo \"Integration test successful\"").unwrap();
@@ -30,14 +25,10 @@ fn create_global_test_config(dir: &Path) {
     let mut file = File::create(&config_path).unwrap();
     writeln!(file, "version: 1").unwrap();
     writeln!(file, "description: \"Global integration test config\"").unwrap();
-    writeln!(file, "entrypoint:").unwrap();
-    writeln!(file, "  - bash").unwrap();
-    writeln!(file, "  - -e").unwrap();
-    writeln!(file, "  - -c").unwrap();
-    writeln!(file, "  - \"$@\"").unwrap();
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  global-echo:").unwrap();
     writeln!(file, "    cmd: echo \"Global command successful\"").unwrap();
+    writeln!(file, "    alias: ge").unwrap();
     writeln!(
         file,
         "    description: \"Prints a global command success message\""
@@ -122,6 +113,25 @@ fn test_hoi_execute_command() {
     let stdout = str::from_utf8(&output.stdout).unwrap();
     assert!(stdout.contains("Running command echo-test..."));
     assert!(stdout.contains("Integration test successful"));
+
+    let binary_path = get_binary_path();
+
+    // Test an alias
+    let output = Command::new(binary_path)
+        .arg("ge")
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(
+        output.status.success(),
+        "Command failed with status: {:?}",
+        output.status
+    );
+
+    let stdout = str::from_utf8(&output.stdout).unwrap();
+    assert!(stdout.contains("Running command ge..."));
+    assert!(stdout.contains("Global command successful"));
 
     // Build the binary
     Command::new("cargo")

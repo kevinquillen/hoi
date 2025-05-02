@@ -262,7 +262,7 @@ fn execute_command(hoi: &Hoi, command_name: &str, args: &[String]) -> Result<(),
 
     match hoi.commands.get(&alias_or_command) {
         Some(command) => {
-            println!("Running command {:?}...", command_name);
+            println!("Running command {}...", command_name);
 
             // Start with entrypoint
             let mut process_args: Vec<String> =
