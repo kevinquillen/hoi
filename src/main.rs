@@ -1,160 +1,3 @@
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::env;
-    use std::fs::{self, File};
-    use std::io::Write;
-    use std::path::{Path, PathBuf};
-    use tempfile::tempdir;
-
-    fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
-        let config_path = dir.join(filename);
-        let mut file = File::create(&config_path).unwrap();
-        writeln!(file, "version: 1").unwrap();
-        writeln!(file, "commands:").unwrap();
-        writeln!(file, "  test-command:").unwrap();
-        writeln!(file, "    cmd: echo \"Test output\"").unwrap();
-        writeln!(file, "    usage: \"Test command that prints output\"").unwrap();
-        writeln!(file, "    description: \"A simple test command\"").unwrap();
-        writeln!(file, "  multiple-command:").unwrap();
-        writeln!(file, "    cmd: |").unwrap();
-        writeln!(file, "      echo \"Line 1\"").unwrap();
-        writeln!(file, "      echo \"Line 2\"").unwrap();
-        writeln!(file, "    usage: \"Multi-line command example\"").unwrap();
-        writeln!(
-            file,
-            "    description: \"A multi-line command for testing\""
-        )
-        .unwrap();
-        config_path
-    }
-
-    fn create_test_config_with_custom_entrypoint(dir: &Path, filename: &str) -> PathBuf {
-        let config_path = dir.join(filename);
-        let mut file = File::create(&config_path).unwrap();
-        writeln!(file, "version: 1").unwrap();
-        writeln!(file, "description: \"Test configuration\"").unwrap();
-        writeln!(file, "entrypoint:").unwrap();
-        writeln!(file, "  - sh").unwrap();
-        writeln!(file, "  - -c").unwrap();
-        writeln!(file, "  - \"$@\"").unwrap();
-        writeln!(file, "commands:").unwrap();
-        writeln!(file, "  test-command:").unwrap();
-        writeln!(file, "    cmd: echo \"Test output\"").unwrap();
-        writeln!(file, "    usage: \"Test command that prints output\"").unwrap();
-        writeln!(file, "    description: \"A simple test command\"").unwrap();
-        writeln!(file, "  multiple-command:").unwrap();
-        writeln!(file, "    cmd: |").unwrap();
-        writeln!(file, "      echo \"Line 1\"").unwrap();
-        writeln!(file, "      echo \"Line 2\"").unwrap();
-        writeln!(file, "    usage: \"Multi-line command example\"").unwrap();
-        writeln!(
-            file,
-            "    description: \"A multi-line command for testing\""
-        )
-        .unwrap();
-        config_path
-    }
-
-    fn create_global_test_config(dir: &Path) -> PathBuf {
-        let hoi_dir = dir.join(".hoi");
-        fs::create_dir_all(&hoi_dir).unwrap();
-
-        let config_path = hoi_dir.join(".hoi.global.yml");
-        let mut file = File::create(&config_path).unwrap();
-        writeln!(file, "version: 1").unwrap();
-        writeln!(file, "description: \"Global test configuration\"").unwrap();
-        writeln!(file, "commands:").unwrap();
-        writeln!(file, "  global-command:").unwrap();
-        writeln!(file, "    cmd: echo \"Global command output\"").unwrap();
-        writeln!(file, "    usage: \"Global command example\"").unwrap();
-        writeln!(
-            file,
-            "    description: \"A command defined in the global config\""
-        )
-        .unwrap();
-        config_path
-    }
-
-    #[test]
-    fn test_load_config() {
-        let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
-        let result = load_config(&config_path);
-        assert!(
-            result.is_ok(),
-            "Failed to load valid config: {:?}",
-            result.err()
-        );
-
-        let hoi = result.unwrap();
-        assert_eq!(hoi.version, "1");
-        assert_eq!(
-            hoi.description,
-            "Hoi is designed to help teams standardize their development workflows."
-        );
-        assert_eq!(hoi.entrypoint, vec!["bash", "-e", "-c", "$@"]);
-        assert_eq!(hoi.commands.len(), 2);
-
-        // Verify commands are in insertion order
-        let command_keys: Vec<_> = hoi.commands.keys().collect();
-        assert_eq!(command_keys[0], "test-command");
-        assert_eq!(command_keys[1], "multiple-command");
-
-        let test_cmd = hoi.commands.get("test-command").unwrap();
-        assert_eq!(test_cmd.cmd, "echo \"Test output\"");
-        assert_eq!(test_cmd.usage, "Test command that prints output");
-        assert_eq!(test_cmd.description, "A simple test command");
-
-        let multi_cmd = hoi.commands.get("multiple-command").unwrap();
-        assert!(multi_cmd.cmd.contains("Line 1"));
-        assert!(multi_cmd.cmd.contains("Line 2"));
-        assert_eq!(multi_cmd.description, "A multi-line command for testing");
-    }
-
-    #[test]
-    fn test_custom_entrypoint() {
-        let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config_with_custom_entrypoint(temp_dir.path(), ".hoi.yml");
-        let result = load_config(&config_path);
-        assert!(
-            result.is_ok(),
-            "Failed to load valid config: {:?}",
-            result.err()
-        );
-
-        let hoi = result.unwrap();
-        assert_eq!(hoi.version, "1");
-        assert_eq!(hoi.description, "Test configuration");
-        assert_eq!(hoi.entrypoint, vec!["sh", "-c", "$@"]);
-    }
-
-    #[test]
-    fn test_find_config() {
-        let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
-        // Override current directory for testing
-        env::set_current_dir(temp_dir.path()).unwrap();
-
-        let result = find_config_file();
-        assert!(result.is_some(), "Failed to find config file");
-        assert_eq!(result.unwrap(), config_path);
-    }
-
-    #[test]
-    fn test_find_global_config() {
-        let temp_dir = tempdir().unwrap();
-        let global_config_path = create_global_test_config(temp_dir.path());
-
-        // Set the HOME env var to our temp dir for testing
-        env::set_var("HOME", temp_dir.path());
-
-        let result = find_global_config_file();
-        assert!(result.is_some(), "Failed to find global config file");
-        assert_eq!(result.unwrap(), global_config_path);
-    }
-}
-
 use std::fs;
 use std::io::{self, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -195,6 +38,7 @@ struct Hoi {
     #[serde(default = "default_entrypoint")]
     entrypoint: Vec<String>,
 
+    #[serde(default)]
     commands: IndexMap<String, UserCommand>,
 }
 
@@ -212,7 +56,8 @@ impl Default for Hoi {
 #[derive(Debug, Deserialize)]
 struct UserCommand {
     cmd: String,
-    usage: String,
+    #[serde(default)]
+    alias: String,
     #[serde(default)]
     description: String,
 }
@@ -307,7 +152,7 @@ fn load_config(path: &Path) -> Result<Hoi, HoiError> {
 /// Returns a random "Did you know?" fact about Hoi.
 ///
 /// This function selects a random interesting fact from a predefined list of facts
-/// about Hoi and its usage. If the random selection fails for any reason, it falls
+/// about Hoi. If the random selection fails for any reason, it falls
 /// back to a default fact.
 ///
 /// # Returns
@@ -334,11 +179,31 @@ fn get_random_did_you_know() -> &'static str {
         .unwrap_or(&"Hoi is a command-line tool.")
 }
 
+/// Looks up a command by its alias.                                                                                                                                                                                                                                                                                                                                    
+///                                                                                                                                                                                                                                                                                                                                                                     
+/// This function searches through all commands in the Hoi configuration                                                                                                                                                                                                                                                                                                
+/// and returns the name of the command that has the specified alias.                                                                                                                                                                                                                                                                                                   
+///                                                                                                                                                                                                                                                                                                                                                                     
+/// # Arguments                                                                                                                                                                                                                                                                                                                                                         
+/// * `hoi` - The Hoi configuration struct containing command definitions                                                                                                                                                                                                                                                                                               
+/// * `alias` - The alias to search for                                                                                                                                                                                                                                                                                                                                 
+///                                                                                                                                                                                                                                                                                                                                                                     
+/// # Returns                                                                                                                                                                                                                                                                                                                                                          
+/// * `Option<&String>` - The name of the command with the matching alias, or None if no match found                                                                                                                                                                                                                                                                    
+fn find_command_by_alias(hoi: &Hoi, alias: &str) -> Option<String> {
+    for (name, command) in &hoi.commands {
+        if !command.alias.is_empty() && command.alias == alias {
+            return Some(name.clone());
+        }
+    }
+    None
+}
+
 /// Displays the available commands in a nicely formatted table.
 ///
 /// This function generates and displays a table of all available commands
-/// defined in the Hoi configuration, including their usage and descriptions.
-/// It also shows a greeting, a random "Did you know?" fact, and usage instructions.
+/// defined in the Hoi configuration.
+/// It also shows a greeting and a random "Did you know?" fact.
 ///
 /// # Arguments
 /// * `hoi` - The Hoi configuration struct containing commands to display
@@ -346,11 +211,11 @@ fn display_commands(hoi: &Hoi) {
     let mut builder = Builder::default();
 
     // Add header row
-    builder.push_record(["Command", "Usage", "Description"]);
+    builder.push_record(["Command", "Alias", "Description"]);
 
     // Add rows for each command
     for (name, command) in &hoi.commands {
-        builder.push_record([name, &command.usage, &command.description]);
+        builder.push_record([name, &command.alias, &command.description]);
     }
 
     let mut table = builder.build();
@@ -364,7 +229,7 @@ fn display_commands(hoi: &Hoi) {
     println!("Hoi Hoi!");
     println!("\nDid you know? {}", get_random_did_you_know());
     println!("\nUsage:");
-    println!("  hoi [command]");
+    println!("  hoi [command|alias]");
 
     if !hoi.description.is_empty() {
         println!("\n{}\n", hoi.description);
@@ -390,9 +255,14 @@ fn display_commands(hoi: &Hoi) {
 /// * `HoiError::CommandNotFound` - If the specified command is not defined in the configuration
 /// * `HoiError::Io` - If there's an IO error executing the command
 fn execute_command(hoi: &Hoi, command_name: &str, args: &[String]) -> Result<(), HoiError> {
-    match hoi.commands.get(command_name) {
+    let alias_or_command = match find_command_by_alias(hoi, command_name) {
+        Some(alias) => alias.to_string(),
+        None => command_name.parse().unwrap(),
+    };
+
+    match hoi.commands.get(&alias_or_command) {
         Some(command) => {
-            println!("Running command {}...", command_name);
+            println!("Running command {:?}...", command_name);
 
             // Start with entrypoint
             let mut process_args: Vec<String> =
@@ -530,4 +400,155 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::{Path, PathBuf};
+    use tempfile::tempdir;
+
+    fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
+        let config_path = dir.join(filename);
+        let mut file = File::create(&config_path).unwrap();
+        writeln!(file, "version: 1").unwrap();
+        writeln!(file, "commands:").unwrap();
+        writeln!(file, "  test-command:").unwrap();
+        writeln!(file, "    cmd: echo \"Test output\"").unwrap();
+        writeln!(file, "    description: \"A simple test command\"").unwrap();
+        writeln!(file, "  multiple-command:").unwrap();
+        writeln!(file, "    cmd: |").unwrap();
+        writeln!(file, "      echo \"Line 1\"").unwrap();
+        writeln!(file, "      echo \"Line 2\"").unwrap();
+        writeln!(
+            file,
+            "    description: \"A multi-line command for testing\""
+        )
+        .unwrap();
+        config_path
+    }
+
+    fn create_test_config_with_custom_entrypoint(dir: &Path, filename: &str) -> PathBuf {
+        let config_path = dir.join(filename);
+        let mut file = File::create(&config_path).unwrap();
+        writeln!(file, "version: 1").unwrap();
+        writeln!(file, "description: \"Test configuration\"").unwrap();
+        writeln!(file, "entrypoint:").unwrap();
+        writeln!(file, "  - sh").unwrap();
+        writeln!(file, "  - -c").unwrap();
+        writeln!(file, "  - \"$@\"").unwrap();
+        writeln!(file, "commands:").unwrap();
+        writeln!(file, "  test-command:").unwrap();
+        writeln!(file, "    cmd: echo \"Test output\"").unwrap();
+        writeln!(file, "    description: \"A simple test command\"").unwrap();
+        writeln!(file, "  multiple-command:").unwrap();
+        writeln!(file, "    cmd: |").unwrap();
+        writeln!(file, "      echo \"Line 1\"").unwrap();
+        writeln!(file, "      echo \"Line 2\"").unwrap();
+        writeln!(
+            file,
+            "    description: \"A multi-line command for testing\""
+        )
+        .unwrap();
+        config_path
+    }
+
+    fn create_global_test_config(dir: &Path) -> PathBuf {
+        let hoi_dir = dir.join(".hoi");
+        fs::create_dir_all(&hoi_dir).unwrap();
+
+        let config_path = hoi_dir.join(".hoi.global.yml");
+        let mut file = File::create(&config_path).unwrap();
+        writeln!(file, "version: 1").unwrap();
+        writeln!(file, "description: \"Global test configuration\"").unwrap();
+        writeln!(file, "commands:").unwrap();
+        writeln!(file, "  global-command:").unwrap();
+        writeln!(file, "    cmd: echo \"Global command output\"").unwrap();
+        writeln!(
+            file,
+            "    description: \"A command defined in the global config\""
+        )
+        .unwrap();
+        config_path
+    }
+
+    #[test]
+    fn test_load_config() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
+        let result = load_config(&config_path);
+        assert!(
+            result.is_ok(),
+            "Failed to load valid config: {:?}",
+            result.err()
+        );
+
+        let hoi = result.unwrap();
+        assert_eq!(hoi.version, "1");
+        assert_eq!(
+            hoi.description,
+            "Hoi is designed to help teams standardize their development workflows."
+        );
+        assert_eq!(hoi.entrypoint, vec!["bash", "-e", "-c", "$@"]);
+        assert_eq!(hoi.commands.len(), 2);
+
+        // Verify commands are in insertion order
+        let command_keys: Vec<_> = hoi.commands.keys().collect();
+        assert_eq!(command_keys[0], "test-command");
+        assert_eq!(command_keys[1], "multiple-command");
+
+        let test_cmd = hoi.commands.get("test-command").unwrap();
+        assert_eq!(test_cmd.cmd, "echo \"Test output\"");
+        assert_eq!(test_cmd.description, "A simple test command");
+
+        let multi_cmd = hoi.commands.get("multiple-command").unwrap();
+        assert!(multi_cmd.cmd.contains("Line 1"));
+        assert!(multi_cmd.cmd.contains("Line 2"));
+        assert_eq!(multi_cmd.description, "A multi-line command for testing");
+    }
+
+    #[test]
+    fn test_custom_entrypoint() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = create_test_config_with_custom_entrypoint(temp_dir.path(), ".hoi.yml");
+        let result = load_config(&config_path);
+        assert!(
+            result.is_ok(),
+            "Failed to load valid config: {:?}",
+            result.err()
+        );
+
+        let hoi = result.unwrap();
+        assert_eq!(hoi.version, "1");
+        assert_eq!(hoi.description, "Test configuration");
+        assert_eq!(hoi.entrypoint, vec!["sh", "-c", "$@"]);
+    }
+
+    #[test]
+    fn test_find_config() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
+        // Override current directory for testing
+        env::set_current_dir(temp_dir.path()).unwrap();
+
+        let result = find_config_file();
+        assert!(result.is_some(), "Failed to find config file");
+        assert_eq!(result.unwrap(), config_path);
+    }
+
+    #[test]
+    fn test_find_global_config() {
+        let temp_dir = tempdir().unwrap();
+        let global_config_path = create_global_test_config(temp_dir.path());
+
+        // Set the HOME env var to our temp dir for testing
+        env::set_var("HOME", temp_dir.path());
+
+        let result = find_global_config_file();
+        assert!(result.is_some(), "Failed to find global config file");
+        assert_eq!(result.unwrap(), global_config_path);
+    }
 }

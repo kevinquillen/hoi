@@ -19,7 +19,6 @@ fn create_test_config(dir: &Path) {
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  echo-test:").unwrap();
     writeln!(file, "    cmd: echo \"Integration test successful\"").unwrap();
-    writeln!(file, "    usage: \"Test echo command\"").unwrap();
     writeln!(file, "    description: \"Prints a test success message\"").unwrap();
 }
 
@@ -39,7 +38,6 @@ fn create_global_test_config(dir: &Path) {
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  global-echo:").unwrap();
     writeln!(file, "    cmd: echo \"Global command successful\"").unwrap();
-    writeln!(file, "    usage: \"Global echo command\"").unwrap();
     writeln!(
         file,
         "    description: \"Prints a global command success message\""
@@ -86,7 +84,6 @@ fn test_hoi_list_commands() {
     assert!(stdout.contains("Hoi Hoi!"));
     assert!(stdout.contains("Integration test config"));
     assert!(stdout.contains("echo-test"));
-    assert!(stdout.contains("Test echo command"));
     assert!(stdout.contains("Prints a test success message"));
 }
 
@@ -148,7 +145,6 @@ fn test_hoi_execute_command() {
 
     let list_stdout = str::from_utf8(&list_output.stdout).unwrap();
     assert!(list_stdout.contains("global-echo"));
-    assert!(list_stdout.contains("Global echo command"));
 
     // Test executing global command
     let exec_output = Command::new(&binary_path)
