@@ -1,6 +1,6 @@
 [package]
 name = "hoi"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2021"
 authors = ["Kevin Quillen <kevinquillen@gmail.com>"]
 description = "hoi is a command-line tool to help create simple command-line powered utilities."
