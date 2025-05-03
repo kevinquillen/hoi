@@ -20,9 +20,9 @@ enum HoiError {
     YamlParsing(#[from] serde_yaml::Error),
     #[error("Command not found: {0}")]
     CommandNotFound(String),
-    #[error("No .hoi.yml file found in current directory or parent directories, and no global config at ~/.hoi/.hoi.global.yml")]
+    #[error("No .hoi.yml file found in current directory or parent directories, and no global config was found at ~/.hoi/.hoi.global.yml.")]
     ConfigNotFound,
-    #[error("No commands defined in .hoi.yml file")]
+    #[error("No commands defined in .hoi.yml file. You need at least one command defined.")]
     NoCommandsDefined,
 }
 
@@ -334,7 +334,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // We need at least one configuration file (either local or global)
     if local_config_path.is_none() && global_config_path.is_none() {
-        return Err(Box::new(HoiError::ConfigNotFound));
+        return Err(HoiError::ConfigNotFound.to_string().into());
     }
 
     // Start with empty default configuration
@@ -382,12 +382,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Ensure we have at least some commands
     if merged_hoi.commands.is_empty() {
-        return Err(Box::new(HoiError::NoCommandsDefined));
+        return Err(HoiError::NoCommandsDefined.to_string().into());
     }
 
     // Ensure we have an entrypoint
     if merged_hoi.entrypoint.is_empty() {
-        return Err(Box::new(HoiError::ConfigNotFound));
+        return Err(HoiError::ConfigNotFound.to_string().into());
     }
 
     let mut args: Vec<String> = env::args().skip(1).collect();
