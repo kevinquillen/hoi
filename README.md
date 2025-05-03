@@ -1,6 +1,6 @@
 # Hoi!
 
-![Crates.io Version](https://img.shields.io/crates/v/hoi)
+[![Crates.io Version](https://img.shields.io/crates/v/hoi)](https://crates.io/crates/hoi)
 [![CI](https://github.com/kevinquillen/hoi/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinquillen/hoi/actions/workflows/ci.yml)
 
 Hoi is a command-line tool that helps create simple command-line powered
