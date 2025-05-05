@@ -1,89 +1,17 @@
+mod hoi;
+mod user_command;
+
 use std::fs;
-use std::io::{self, BufReader, Read};
+use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use thiserror::Error;
 
-use indexmap::IndexMap;
+use crate::hoi::{Hoi, HoiError};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use serde::Deserialize;
 use tabled::builder::Builder;
 use tabled::settings::object::Columns;
 use tabled::settings::{Alignment, Modify, Padding, Style};
-
-#[derive(Error, Debug)]
-enum HoiError {
-    #[error("IO error: {0}")]
-    Io(#[from] io::Error),
-    #[error("YAML parsing error: {0}")]
-    YamlParsing(#[from] serde_yaml::Error),
-    #[error("Command not found: {0}")]
-    CommandNotFound(String),
-    #[error("No .hoi.yml file found in current directory or parent directories, and no global config was found at ~/.hoi/.hoi.global.yml.")]
-    ConfigNotFound,
-    #[error("No commands defined in .hoi.yml file. You need at least one command defined.")]
-    NoCommandsDefined,
-}
-
-#[derive(Deserialize, Debug)]
-#[allow(dead_code)]
-struct Hoi {
-    #[serde(default = "default_version")]
-    version: String,
-
-    #[serde(default = "default_description")]
-    description: String,
-
-    #[serde(default = "default_entrypoint")]
-    entrypoint: Vec<String>,
-
-    #[serde(default)]
-    commands: IndexMap<String, UserCommand>,
-}
-
-impl Default for Hoi {
-    fn default() -> Self {
-        Self {
-            version: String::new(),
-            description: String::new(),
-            entrypoint: Vec::new(),
-            commands: IndexMap::new(),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct UserCommand {
-    cmd: String,
-    #[serde(default)]
-    alias: String,
-    #[serde(default)]
-    description: String,
-}
-
-/// Returns the default description string for Hoi configuration.
-/// This is used when no description is specified in the configuration file.
-fn default_description() -> String {
-    "Hoi is designed to help teams standardize their development workflows.".to_string()
-}
-
-/// Returns the default version string for Hoi configuration.
-/// This is used when no version is specified in the configuration file.
-fn default_version() -> String {
-    "1".to_string()
-}
-
-/// Returns the default entrypoint to use.
-/// This is used when no entrypoint is specified in the configuration file.
-fn default_entrypoint() -> Vec<String> {
-    vec![
-        "bash".to_string(),
-        "-e".to_string(),
-        "-c".to_string(),
-        "$@".to_string(),
-    ]
-}
 
 /// Searches for a .hoi.yml configuration file in the current directory and its parents.
 /// Returns the path to the first .hoi.yml file found, or None if no configuration file exists.
