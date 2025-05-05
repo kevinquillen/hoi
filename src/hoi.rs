@@ -1,8 +1,8 @@
-use std::io;
+use crate::user_command::UserCommand;
 use indexmap::IndexMap;
 use serde::Deserialize;
+use std::io;
 use thiserror::Error;
-use crate::user_command::UserCommand;
 
 #[derive(Error, Debug)]
 pub enum HoiError {

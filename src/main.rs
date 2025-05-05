@@ -6,12 +6,12 @@ use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use crate::hoi::{Hoi, HoiError};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use tabled::builder::Builder;
 use tabled::settings::object::Columns;
 use tabled::settings::{Alignment, Modify, Padding, Style};
-use crate::hoi::{Hoi, HoiError};
 
 /// Searches for a .hoi.yml configuration file in the current directory and its parents.
 /// Returns the path to the first .hoi.yml file found, or None if no configuration file exists.
