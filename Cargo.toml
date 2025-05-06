@@ -1,6 +1,6 @@
 [package]
 name = "hoi"
-version = "0.5.6"
+version = "0.5.7"
 edition = "2021"
 authors = ["Kevin Quillen <kevinquillen@gmail.com>"]
 description = "hoi is a command-line tool to help create simple command-line powered utilities."
@@ -15,10 +15,8 @@ repository = "https://github.com/kevinquillen/hoi"
 winapi = { version = "0.3", features = ["winuser", "fileapi"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-# Add macOS-specific dependencies here if needed
 
 [target.'cfg(target_os = "linux")'.dependencies]
-# Add Linux-specific dependencies here if needed
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
