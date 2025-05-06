@@ -2,7 +2,7 @@ mod hoi;
 mod user_command;
 
 use std::fs;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -141,6 +141,9 @@ fn display_commands(hoi: &Hoi) {
     // Add header row
     builder.push_record(["Command", "Alias", "Description"]);
 
+    // Add built-in commands
+    builder.push_record(["init", "", "Create a new .hoi.yml configuration file in the current directory."]);
+
     // Add rows for each command
     for (name, command) in &hoi.commands {
         builder.push_record([name, &command.alias, &command.description]);
@@ -157,11 +160,15 @@ fn display_commands(hoi: &Hoi) {
     println!("Hoi Hoi!");
     println!("\nDid you know? {}", get_random_did_you_know());
     println!("\nUsage:");
-    println!("  hoi [command|alias]");
+    println!("  hoi [command|alias] (command options) (command arguments...)");
 
     if !hoi.description.is_empty() {
         println!("\n{}\n", hoi.description);
     }
+    else {
+        println!();
+    }
+
     println!("{}\n", table);
 }
 
@@ -238,6 +245,56 @@ fn execute_command(hoi: &Hoi, command_name: &str, args: &[String]) -> Result<(),
     }
 }
 
+/// Creates a new .hoi.yml file with a basic template in the current directory.
+///
+/// This function creates a new configuration file with some example commands
+/// to help users get started. It will not overwrite an existing file.
+///
+/// # Returns
+/// * `Result<(), Box<dyn std::error::Error>>` - Ok if file creation succeeded, or an error
+///
+/// # Errors
+/// * Various I/O errors if file creation fails
+fn create_init_config() -> Result<(), Box<dyn std::error::Error>> {
+    use std::env;
+    use std::fs::File;
+
+    let current_dir = env::current_dir()?;
+    let config_path = current_dir.join(".hoi.yml");
+
+    if config_path.exists() {
+        println!("A .hoi.yml file already exists at {}", config_path.display());
+        return Ok(());
+    }
+
+    let mut file = File::create(&config_path)?;
+
+    let template = r#"version: 1
+description: "Custom commands"
+commands:
+  hello:
+    cmd: echo "Hello from Hoi!"
+    description: "A simple example command."
+  multiline:
+    cmd: |
+      echo "This is a multi-line command"
+      echo "Each line will be executed in sequence"
+    alias: ml
+    description: "An example of a multi-line command with an alias."
+  help:
+    cmd: |
+      echo "To add new commands, edit the .hoi.yml file in this directory."
+      echo "Run 'hoi' to see a list of all available commands."
+    description: "Shows help information about using hoi."
+"#;
+
+    file.write_all(template.as_bytes())?;
+    println!("Created new .hoi.yml file at {}", config_path.display());
+    println!("Run 'hoi' to see your available commands.");
+
+    Ok(())
+}
+
 /// The main entry point for the Hoi application.
 ///
 /// This function coordinates the overall flow of the application:
@@ -254,16 +311,19 @@ fn execute_command(hoi: &Hoi, command_name: &str, args: &[String]) -> Result<(),
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::env;
 
+    // Parse command line arguments early to check for 'init' command
+    let mut args: Vec<String> = env::args().skip(1).collect();
+    
+    // Handle the 'init' command before looking for config files
+    if !args.is_empty() && args[0] == "init" {
+        return create_init_config();
+    }
+    
     // Find and load the local config file (project-specific)
     let local_config_path = find_config_file();
 
     // Find and load the global config file
     let global_config_path = find_global_config_file();
-
-    // We need at least one configuration file (either local or global)
-    if local_config_path.is_none() && global_config_path.is_none() {
-        return Err(HoiError::ConfigNotFound.to_string().into());
-    }
 
     // Start with empty default configuration
     let mut merged_hoi = Hoi::default();
@@ -308,18 +368,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Ensure we have at least some commands
-    if merged_hoi.commands.is_empty() {
-        return Err(HoiError::NoCommandsDefined.to_string().into());
-    }
-
-    // Ensure we have an entrypoint
-    if merged_hoi.entrypoint.is_empty() {
-        return Err(HoiError::ConfigNotFound.to_string().into());
-    }
-
-    let mut args: Vec<String> = env::args().skip(1).collect();
-
+    // Args were already parsed earlier to check for 'init' command
     if args.is_empty() {
         display_commands(&merged_hoi);
     } else {
@@ -478,5 +527,34 @@ mod tests {
         let result = find_global_config_file();
         assert!(result.is_some(), "Failed to find global config file");
         assert_eq!(result.unwrap(), global_config_path);
+    }
+    
+    #[test]
+    fn test_init_command() {
+        let temp_dir = tempdir().unwrap();
+        env::set_current_dir(temp_dir.path()).unwrap();
+        
+        // Run the init config function
+        let result = create_init_config();
+        assert!(result.is_ok(), "Failed to create init config: {:?}", result.err());
+        
+        // Verify the config file was created
+        let config_path = temp_dir.path().join(".hoi.yml");
+        assert!(config_path.exists(), "Config file was not created");
+        
+        // Test that running init again when file exists doesn't overwrite it
+        let original_content = fs::read_to_string(&config_path).unwrap();
+        
+        // Modify the file slightly to detect if it gets overwritten
+        let modified_content = original_content.replace("Custom commands", "Test commands");
+        fs::write(&config_path, modified_content).unwrap();
+        
+        // Run init again
+        let result = create_init_config();
+        assert!(result.is_ok(), "Failed on second init run: {:?}", result.err());
+        
+        // Verify content wasn't overwritten
+        let final_content = fs::read_to_string(&config_path).unwrap();
+        assert!(final_content.contains("Test commands"), "Config file was incorrectly overwritten");
     }
 }
