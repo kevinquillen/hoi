@@ -47,7 +47,17 @@ cargo install hoi
 
 ### Configuration
 
-Create a `.hoi.yml` file in your project directory with the following structure:
+You can create a new `.hoi.yml` file using the built-in init command:
+
+```bash
+hoi init
+```
+
+This will create a template `.hoi.yml` file in your current directory with some
+example commands to get you started.
+
+Alternatively, you can manually create a `.hoi.yml` file in your project
+directory with the following structure:
 
 ```yaml
 version: 1
@@ -80,7 +90,7 @@ hoi
 Execute a specific command:
 
 ```bash
-hoi command|alias [additional args]
+hoi [command|alias] (command options) (command arguments...)
 ```
 
 Hoi can also call itself, allowing you to chain different commands together 
