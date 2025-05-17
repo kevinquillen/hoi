@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::hoi::{Hoi, HoiError};
+use dotenvy;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use tabled::builder::Builder;
@@ -48,6 +49,29 @@ fn find_global_config_file() -> Option<PathBuf> {
     }
 
     None
+}
+
+/// Loads environment variables from .env and .env.local files in the same directory as the .hoi.yml file.
+/// If both files exist, .env is loaded first, and .env.local variables will override any variables
+/// with the same name defined in .env.
+///
+/// # Arguments
+/// * `config_dir` - The directory containing the .hoi.yml file
+fn load_environment_files(config_dir: &Path) {
+    // Find and load .env file in the same directory as .hoi.yml
+    let env_file = config_dir.join(".env");
+    if env_file.exists() {
+        // Use the standard from_path function which won't override existing env vars
+        let _ = dotenvy::from_path(&env_file);
+    }
+
+    // Find and load .env.local file in the same directory as .hoi.yml
+    let env_local_file = config_dir.join(".env.local");
+    if env_local_file.exists() {
+        // Use from_path_override to ensure .env.local values override both
+        // any existing environment variables and those loaded from .env
+        let _ = dotenvy::from_path_override(&env_local_file);
+    }
 }
 
 /// Loads and parses the Hoi configuration file from the specified path.
@@ -305,9 +329,11 @@ commands:
 ///
 /// This function coordinates the overall flow of the application:
 /// 1. Finds and loads the Hoi configuration files (local and global)
-/// 2. Merges configurations, with local commands taking precedence
-/// 3. Parses command-line arguments
-/// 4. Either displays available commands or executes the specified command
+/// 2. Loads environment variables from .env and .env.local files if they exist
+///    (with .env.local values overriding .env values)
+/// 3. Merges configurations, with local commands taking precedence
+/// 4. Parses command-line arguments
+/// 5. Either displays available commands or executes the specified command
 ///
 /// # Returns
 /// * `Result<(), Box<dyn std::error::Error>>` - Ok if execution was successful or an error
@@ -356,6 +382,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load and merge local config if it exists (overriding global settings)
     if let Some(local_path) = local_config_path {
+        // Load environment variables from .env and .env.local files in the same directory as the .hoi.yml file
+        if let Some(config_dir) = local_path.parent() {
+            load_environment_files(config_dir);
+        }
+
         if let Ok(local_hoi) = load_config(&local_path) {
             // Override entrypoint if defined in local config
             if !local_hoi.entrypoint.is_empty() {
@@ -573,5 +604,50 @@ mod tests {
             final_content.contains("Test commands"),
             "Config file was incorrectly overwritten"
         );
+    }
+
+    #[test]
+    fn test_environment_loading() {
+        let temp_dir = tempdir().unwrap();
+        let dir_path = temp_dir.path();
+
+        // Set a pre-existing environment variable to test override behavior
+        env::set_var("PRE_EXISTING_VAR", "original_value");
+        env::set_var("OVERRIDE_TEST", "original_value");
+
+        // Create .env file
+        let env_path = dir_path.join(".env");
+        let mut env_file = File::create(env_path).unwrap();
+        writeln!(env_file, "TEST_VAR=env_value").unwrap();
+        writeln!(env_file, "COMMON_VAR=env_value").unwrap();
+        // This shouldn't override the existing env var
+        writeln!(env_file, "PRE_EXISTING_VAR=env_value").unwrap();
+
+        // Create .env.local file with override
+        let env_local_path = dir_path.join(".env.local");
+        let mut env_local_file = File::create(env_local_path).unwrap();
+        writeln!(env_local_file, "TEST_VAR_LOCAL=local_only_value").unwrap();
+        // This should override the .env value
+        writeln!(env_local_file, "COMMON_VAR=env_local_value").unwrap();
+        // This should override the pre-existing value
+        writeln!(env_local_file, "OVERRIDE_TEST=local_value").unwrap();
+
+        // Load environment variables
+        load_environment_files(dir_path);
+
+        // Check that variables were loaded correctly from .env
+        assert_eq!(env::var("TEST_VAR").unwrap(), "env_value");
+
+        // Check that .env.local only values were loaded
+        assert_eq!(env::var("TEST_VAR_LOCAL").unwrap(), "local_only_value");
+
+        // Check that .env.local overrides .env
+        assert_eq!(env::var("COMMON_VAR").unwrap(), "env_local_value");
+
+        // Check that .env doesn't override existing environment variables
+        assert_eq!(env::var("PRE_EXISTING_VAR").unwrap(), "original_value");
+
+        // Check that .env.local does override existing environment variables
+        assert_eq!(env::var("OVERRIDE_TEST").unwrap(), "local_value");
     }
 }

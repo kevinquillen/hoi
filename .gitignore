@@ -1,3 +1,4 @@
 /target
 .idea
 .hoi.yml
+**/.claude/settings.local.json
