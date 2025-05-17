@@ -1,12 +1,12 @@
 [package]
 name = "hoi"
-version = "0.5.7"
+version = "0.6.0"
 edition = "2021"
 authors = ["Kevin Quillen <kevinquillen@gmail.com>"]
 description = "hoi is a command-line tool to help create simple command-line powered utilities."
 categories = ["command-line-utilities", "development-tools"]
 license = "MIT"
-keywords = ["commandfile", "command-line", "runner", "development", "utility"]
+keywords = ["commandfile", "command-line", "runner", "task", "utility"]
 documentation = "https://github.com/kevinquillen/hoi"
 homepage = "https://github.com/kevinquillen/hoi"
 repository = "https://github.com/kevinquillen/hoi"
