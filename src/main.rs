@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::hoi::{Hoi, HoiError};
-use dotenvy;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use tabled::builder::Builder;
@@ -58,18 +57,13 @@ fn find_global_config_file() -> Option<PathBuf> {
 /// # Arguments
 /// * `config_dir` - The directory containing the .hoi.yml file
 fn load_environment_files(config_dir: &Path) {
-    // Find and load .env file in the same directory as .hoi.yml
     let env_file = config_dir.join(".env");
     if env_file.exists() {
-        // Use the standard from_path function which won't override existing env vars
         let _ = dotenvy::from_path(&env_file);
     }
 
-    // Find and load .env.local file in the same directory as .hoi.yml
     let env_local_file = config_dir.join(".env.local");
     if env_local_file.exists() {
-        // Use from_path_override to ensure .env.local values override both
-        // any existing environment variables and those loaded from .env
         let _ = dotenvy::from_path_override(&env_local_file);
     }
 }
@@ -162,24 +156,19 @@ fn find_command_by_alias(hoi: &Hoi, alias: &str) -> Option<String> {
 fn display_commands(hoi: &Hoi) {
     let mut builder = Builder::default();
 
-    // Add header row
     builder.push_record(["Command", "Alias", "Description"]);
-
-    // Add built-in commands
     builder.push_record([
         "init",
         "",
         "Create a new .hoi.yml configuration file in the current directory.",
     ]);
 
-    // Add rows for each command
     for (name, command) in &hoi.commands {
         builder.push_record([name, &command.alias, &command.description]);
     }
 
     let mut table = builder.build();
 
-    // Style the table with colors and borders
     table
         .with(Style::blank())
         .with(Padding::new(1, 1, 0, 0))
@@ -247,8 +236,6 @@ fn execute_command(hoi: &Hoi, command_name: &str, args: &[String]) -> Result<(),
             }
 
             let entrypoint = process_args.remove(0);
-
-            // Add remaining command-line arguments
             process_args.extend_from_slice(args);
 
             let status = Command::new(entrypoint)
@@ -363,17 +350,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load and merge global config if it exists
     if let Some(global_path) = global_config_path {
         if let Ok(global_hoi) = load_config(&global_path) {
-            // Use global entrypoint if it's defined
             if !global_hoi.entrypoint.is_empty() {
                 merged_hoi.entrypoint = global_hoi.entrypoint;
             }
 
-            // Add global description if it's defined and merged one is empty
             if !global_hoi.description.is_empty() && merged_hoi.description.is_empty() {
                 merged_hoi.description = global_hoi.description;
             }
 
-            // Add global commands
             for (name, command) in global_hoi.commands {
                 merged_hoi.commands.insert(name, command);
             }
@@ -382,7 +366,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load and merge local config if it exists (overriding global settings)
     if let Some(local_path) = local_config_path {
-        // Load environment variables from .env and .env.local files in the same directory as the .hoi.yml file
         if let Some(config_dir) = local_path.parent() {
             load_environment_files(config_dir);
         }
