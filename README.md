@@ -77,7 +77,19 @@ commands:
 
 You can also put a Hoi file at `~/.hoi/.hoi.global.yml` to provide globally 
 available commands. These will be available everywhere. If a `.hoi.yml` file 
-exists in your project directory, both files will be merged. 
+exists in your project directory, both files will be merged.
+
+### Environment Variables
+
+Hoi automatically loads environment variables from `.env` and `.env.local` files
+located in the same directory as your `.hoi.yml` file. This allows you to
+configure your commands with environment-specific values without modifying the
+command definitions.
+
+If both files exist, `.env` is loaded first, and then `.env.local` is loaded,
+with variables in `.env.local` taking precedence over those defined in `.env`.
+This follows the common pattern of having `.env` for shared configuration and
+`.env.local` for local overrides.
 
 ### Running Commands
 
@@ -123,6 +135,7 @@ commands:
   local project files
 - Each command can have an alias
 - Overridable entrypoint for command execution
+- Environment variable support from `.env` and `.env.local` files
 
 ### Building the Project
 
