@@ -545,7 +545,7 @@ mod tests {
         let global_config_path = create_global_test_config(temp_dir.path())
             .canonicalize()
             .ok()
-            .unwrap();;
+            .unwrap();
 
         // Set the HOME env var to our temp dir for testing
         env::set_var("HOME", temp_dir.path());
@@ -569,7 +569,9 @@ mod tests {
         );
 
         // Verify the config file was created
-        let config_path = temp_dir.path().join(".hoi.yml")
+        let config_path = temp_dir
+            .path()
+            .join(".hoi.yml")
             .canonicalize()
             .ok()
             .unwrap();
