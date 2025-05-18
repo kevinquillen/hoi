@@ -588,8 +588,6 @@ mod tests {
         env::set_var("USERPROFILE", temp_dir.path().to_string_lossy().to_string());
 
         let result = find_global_config_file();
-        assert!(result.is_some(), "Failed to find global config file");
-
         let result_path = result.unwrap();
 
         // Platform-specific path comparison
