@@ -418,7 +418,7 @@ mod tests {
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::{Path, PathBuf};
-    use tempfile::tempdir;
+    use tempfile::{tempdir, TempDir};
 
     fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
         let config_path = dir.join(filename);
@@ -568,14 +568,14 @@ mod tests {
 
     #[test]
     fn test_find_global_config() {
-        let temp_dir = tempdir().unwrap();
+        let temp_dir = TempDir::new().unwrap();
         let global_config_path = create_global_test_config(temp_dir.path());
 
         // Set the home dir environment variable
         #[cfg(not(windows))]
         env::set_var("HOME", temp_dir.path());
         #[cfg(windows)]
-        env::set_var("USERPROFILE", temp_dir.path().to_string_lossy().to_string());
+        env::set_var("USERPROFILE", temp_dir.path());
 
         let result = find_global_config_file();
         assert!(result.is_some(), "Failed to find global config file");
