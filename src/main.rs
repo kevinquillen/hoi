@@ -454,10 +454,10 @@ mod tests {
     }
 
     fn create_global_test_config(dir: &Path) -> PathBuf {
-        let hoi_dir = dir.join(".hoi");
+        let hoi_dir = dir.join(".hoi").canonicalize().ok().unwrap();
         fs::create_dir_all(&hoi_dir).unwrap();
 
-        let config_path = hoi_dir.join(".hoi.global.yml").canonicalize().ok().unwrap();
+        let config_path = hoi_dir.join(".hoi.global.yml");
         let mut file = File::create(&config_path).unwrap();
         writeln!(file, "version: 1").unwrap();
         writeln!(file, "description: \"Global test configuration\"").unwrap();
