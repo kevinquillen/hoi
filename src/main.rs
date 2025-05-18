@@ -541,16 +541,16 @@ mod tests {
 
     #[test]
     fn test_find_global_config() {
-        let temp_dir = tempdir().unwrap();
-        let global_config_path = create_global_test_config(temp_dir.path())
+        let temp_dir = std::env::temp_dir();
+        let global_config_path = create_global_test_config(temp_dir.as_path())
             .canonicalize()
             .ok()
             .unwrap();
 
         #[cfg(not(windows))]
-        env::set_var("HOME", temp_dir.path());
+        env::set_var("HOME", temp_dir.as_path());
         #[cfg(windows)]
-        env::set_var("USERPROFILE", temp_dir.path());
+        env::set_var("USERPROFILE", temp_dir.as_path());
 
         let result = find_global_config_file();
         assert!(result.is_some(), "Failed to find global config file");
