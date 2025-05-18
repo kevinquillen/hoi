@@ -454,7 +454,7 @@ mod tests {
     }
 
     fn create_global_test_config(dir: &Path) -> PathBuf {
-        let hoi_dir = dir.join(".hoi").canonicalize().ok().unwrap();
+        let hoi_dir = dir.join(".hoi");
         fs::create_dir_all(&hoi_dir).unwrap();
 
         let config_path = hoi_dir.join(".hoi.global.yml");
