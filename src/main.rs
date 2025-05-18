@@ -527,7 +527,7 @@ mod tests {
     #[test]
     fn test_find_config() {
         let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
+        let config_path = create_test_config(temp_dir.path(), ".hoi.yml").canonicalize().ok().unwrap();
         // Override current directory for testing
         env::set_current_dir(temp_dir.path()).unwrap();
 
