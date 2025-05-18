@@ -24,7 +24,7 @@ fn find_config_file() -> Option<PathBuf> {
     loop {
         let config_path = dir.join(".hoi.yml");
         if config_path.exists() {
-            return Some(config_path);
+            return config_path.canonicalize().ok().or(Some(config_path));
         }
 
         if let Some(parent) = dir.parent() {
@@ -43,7 +43,7 @@ fn find_global_config_file() -> Option<PathBuf> {
     if let Some(home_dir) = dirs_next::home_dir() {
         let global_config = home_dir.join(".hoi").join(".hoi.global.yml");
         if global_config.exists() {
-            return Some(global_config);
+            return global_config.canonicalize().ok().or(Some(global_config));
         }
     }
 
