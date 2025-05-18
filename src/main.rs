@@ -55,7 +55,10 @@ fn find_global_config_file() -> Option<PathBuf> {
         let global_config = home_dir.join(".hoi").join(".hoi.global.yml");
 
         if global_config.exists() {
-            return global_config.canonicalize().ok().or(Some(global_config));
+            return match global_config.canonicalize() {
+                Ok(path) => Some(path),
+                Err(_) => Some(global_config),
+            };
         }
     }
 
