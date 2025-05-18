@@ -538,8 +538,8 @@ mod tests {
         assert!(result.is_some(), "Failed to find config file");
         assert_eq!(result.unwrap(), config_path);
     }
-    
-    /// Test is skipped in Windows for now, think it is a temp_dir location issue when 
+
+    /// Test is skipped in Windows for now, think it is a temp_dir location issue when
     /// overwriting the USERPROFILE env var.
     #[test]
     #[cfg(not(windows))]
