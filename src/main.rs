@@ -55,17 +55,7 @@ fn find_global_config_file() -> Option<PathBuf> {
         let global_config = home_dir.join(".hoi").join(".hoi.global.yml");
 
         if global_config.exists() {
-            // On Windows, avoid canonicalize() as it can lead to path format issues
-            #[cfg(not(windows))]
-            {
-                return global_config.canonicalize().ok().or(Some(global_config));
-            }
-
-            // For Windows, just return the path directly
-            #[cfg(windows)]
-            {
-                return Some(global_config);
-            }
+            return global_config.canonicalize().ok().or(Some(global_config));
         }
     }
 
@@ -588,6 +578,8 @@ mod tests {
         env::set_var("USERPROFILE", temp_dir.path().to_string_lossy().to_string());
 
         let result = find_global_config_file();
+        assert!(result.is_some(), "Failed to find global config file");
+
         let result_path = result.unwrap();
 
         // Platform-specific path comparison
