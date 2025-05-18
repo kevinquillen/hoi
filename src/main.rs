@@ -547,8 +547,10 @@ mod tests {
             .ok()
             .unwrap();
 
-        // Set the HOME env var to our temp dir for testing
+        #[cfg(not(windows))]
         env::set_var("HOME", temp_dir.path());
+        #[cfg(windows)]
+        env::set_var("USERPROFILE", temp_dir.path());
 
         let result = find_global_config_file();
         assert!(result.is_some(), "Failed to find global config file");
