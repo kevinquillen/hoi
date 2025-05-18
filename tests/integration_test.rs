@@ -119,8 +119,14 @@ fn test_hoi_execute_command() {
     create_global_test_config(temp_dir.path());
 
     // Set the HOME env var to our temp dir for testing
+    #[cfg(not(windows))]
     let original_home = env::var("HOME").ok();
+    #[cfg(not(windows))]
     env::set_var("HOME", temp_dir.path());
+    #[cfg(windows)]
+    let original_home = env::var("USERPROFILE").ok();
+    #[cfg(windows)]
+    env::set_var("USERPROFILE", temp_dir.path());
 
     // First build the binary
     Command::new("cargo")
