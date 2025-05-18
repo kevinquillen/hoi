@@ -29,7 +29,7 @@ fn find_config_file() -> Option<PathBuf> {
             {
                 return config_path.canonicalize().ok().or(Some(config_path));
             }
-            
+
             // For Windows, just return the path directly
             #[cfg(windows)]
             {
@@ -53,14 +53,14 @@ fn find_global_config_file() -> Option<PathBuf> {
     if let Some(home_dir) = dirs_next::home_dir() {
         // Create the global config path
         let global_config = home_dir.join(".hoi").join(".hoi.global.yml");
-        
+
         if global_config.exists() {
             // On Windows, avoid canonicalize() as it can lead to path format issues
             #[cfg(not(windows))]
             {
                 return global_config.canonicalize().ok().or(Some(global_config));
             }
-            
+
             // For Windows, just return the path directly
             #[cfg(windows)]
             {
@@ -550,20 +550,20 @@ mod tests {
     fn test_find_config() {
         let temp_dir = tempdir().unwrap();
         let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
-        
+
         // Override current directory for testing
         env::set_current_dir(temp_dir.path()).unwrap();
 
         let result = find_config_file();
         assert!(result.is_some(), "Failed to find config file");
-        
+
         // Platform-specific path comparison
         #[cfg(not(windows))]
         {
             let canonical_path = config_path.canonicalize().ok().unwrap();
             assert_eq!(result.unwrap(), canonical_path);
         }
-        
+
         #[cfg(windows)]
         {
             let result_path = result.unwrap();
@@ -607,7 +607,7 @@ mod tests {
                 result_path.file_name().unwrap(),
                 global_config_path.file_name().unwrap()
             );
-            
+
             // Also verify the parent directory is correct
             assert_eq!(
                 result_path.parent().unwrap().file_name().unwrap(),
