@@ -126,7 +126,7 @@ fn test_hoi_execute_command() {
     #[cfg(windows)]
     let original_home = env::var("USERPROFILE").ok();
     #[cfg(windows)]
-    env::set_var("USERPROFILE", temp_dir.path());
+    env::set_var("USERPROFILE", temp_dir.path().to_string_lossy().to_string());
 
     // First build the binary
     Command::new("cargo")
@@ -237,24 +237,39 @@ fn test_hoi_execute_command() {
         global_exec_output.status
     );
 
-    // Restore original HOME env var if it existed
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
+    // Restore original environment variable if it existed
+    #[cfg(not(windows))]
+    {
+        if let Some(home) = original_home {
+            env::set_var("HOME", home);
+        } else {
+            env::remove_var("HOME");
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Some(home) = original_home {
+            env::set_var("USERPROFILE", home);
+        } else {
+            env::remove_var("USERPROFILE");
+        }
     }
 }
 
 #[test]
 fn test_hoi_with_env_files() {
     let temp_dir = TempDir::new().unwrap();
-
-    // Create command config with env vars
     create_test_config_with_env_commands(temp_dir.path());
 
     // Set the HOME env var to our temp dir for testing
+    #[cfg(not(windows))]
     let original_home = env::var("HOME").ok();
+    #[cfg(not(windows))]
     env::set_var("HOME", temp_dir.path());
+    #[cfg(windows)]
+    let original_home = env::var("USERPROFILE").ok();
+    #[cfg(windows)]
+    env::set_var("USERPROFILE", temp_dir.path().to_string_lossy().to_string());
 
     // Build the binary
     Command::new("cargo")
@@ -332,10 +347,21 @@ fn test_hoi_with_env_files() {
     assert!(both_stdout.contains("LOCAL_VAR=local_value")); // From .env.local
     assert!(both_stdout.contains("OVERRIDE_VAR=local_value")); // From .env.local (override)
 
-    // Restore original HOME env var if it existed
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
+    // Restore original environment variable if it existed
+    #[cfg(not(windows))]
+    {
+        if let Some(home) = original_home {
+            env::set_var("HOME", home);
+        } else {
+            env::remove_var("HOME");
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Some(home) = original_home {
+            env::set_var("USERPROFILE", home);
+        } else {
+            env::remove_var("USERPROFILE");
+        }
     }
 }

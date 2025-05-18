@@ -539,25 +539,38 @@ mod tests {
         assert_eq!(result.unwrap(), config_path);
     }
 
-    /// Test is skipped in Windows for now, think it is a temp_dir location issue when
-    /// overwriting the USERPROFILE env var.
     #[test]
-    #[cfg(not(windows))]
     fn test_find_global_config() {
         let temp_dir = tempdir().unwrap();
-        let global_config_path = create_global_test_config(temp_dir.path())
-            .canonicalize()
-            .ok()
-            .unwrap();
-
+        let global_config_path = create_global_test_config(temp_dir.path());
+        
+        // Set the home dir environment variable
         #[cfg(not(windows))]
         env::set_var("HOME", temp_dir.path());
         #[cfg(windows)]
-        env::set_var("USERPROFILE", temp_dir.as_path());
+        env::set_var("USERPROFILE", temp_dir.path().to_string_lossy().to_string());
 
         let result = find_global_config_file();
         assert!(result.is_some(), "Failed to find global config file");
-        assert_eq!(result.unwrap(), global_config_path);
+        
+        let result_path = result.unwrap();
+        
+        // On Windows, don't canonicalize paths as it leads to UNC path formats
+        // Instead compare the paths directly to avoid format mismatches
+        #[cfg(not(windows))]
+        {
+            let canonical_path = global_config_path.canonicalize().ok().unwrap();
+            assert_eq!(result_path, canonical_path);
+        }
+        
+        #[cfg(windows)]
+        {
+            assert!(result_path.exists(), "Result path does not exist");
+            assert_eq!(
+                result_path.file_name().unwrap(), 
+                global_config_path.file_name().unwrap()
+            );
+        }
     }
 
     #[test]
