@@ -409,7 +409,7 @@ mod tests {
     use tempfile::tempdir;
 
     fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
-        let config_path = dir.join(filename).canonicalize().ok().unwrap();
+        let config_path = dir.join(filename);
         let mut file = File::create(&config_path).unwrap();
         writeln!(file, "version: 1").unwrap();
         writeln!(file, "commands:").unwrap();
@@ -429,7 +429,7 @@ mod tests {
     }
 
     fn create_test_config_with_custom_entrypoint(dir: &Path, filename: &str) -> PathBuf {
-        let config_path = dir.join(filename).canonicalize().ok().unwrap();
+        let config_path = dir.join(filename);
         let mut file = File::create(&config_path).unwrap();
         writeln!(file, "version: 1").unwrap();
         writeln!(file, "description: \"Test configuration\"").unwrap();
@@ -457,7 +457,7 @@ mod tests {
         let hoi_dir = dir.join(".hoi");
         fs::create_dir_all(&hoi_dir).unwrap();
 
-        let config_path = hoi_dir.join(".hoi.global.yml").canonicalize().ok().unwrap();
+        let config_path = hoi_dir.join(".hoi.global.yml");
         let mut file = File::create(&config_path).unwrap();
         writeln!(file, "version: 1").unwrap();
         writeln!(file, "description: \"Global test configuration\"").unwrap();
