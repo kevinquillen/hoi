@@ -572,13 +572,13 @@ mod tests {
     #[test]
     fn test_find_global_config() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Set the home dir environment variable
         #[cfg(not(windows))]
         env::set_var("HOME", temp_dir.path());
         #[cfg(windows)]
         env::set_var("USERPROFILE", temp_dir.path());
-        
+
         let global_config_path = create_global_test_config(temp_dir.path());
 
         let result = find_global_config_file();
