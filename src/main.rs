@@ -468,9 +468,9 @@ mod tests {
         config_path
     }
 
-    fn create_global_test_config(dir: &Path) -> PathBuf {
-        let hoi_dir = dir.join(".hoi");
-        fs::create_dir_all(&hoi_dir).unwrap();
+    fn create_global_test_config(home_dir: &Path) -> PathBuf {
+        let hoi_dir = home_dir.join(".hoi");
+        fs::create_dir_all(&home_dir).unwrap();
 
         let config_path = hoi_dir.join(".hoi.global.yml");
         let mut file = File::create(&config_path).unwrap();
@@ -579,7 +579,7 @@ mod tests {
         #[cfg(windows)]
         env::set_var("USERPROFILE", temp_dir.path());
 
-        let global_config_path = create_global_test_config(temp_dir.path());
+        let global_config_path = create_global_test_config(&dirs_next::home_dir().unwrap());
 
         let result = find_global_config_file();
         assert!(result.is_some(), "Failed to find global config file");
