@@ -49,29 +49,16 @@ fn find_config_file() -> Option<PathBuf> {
 
 /// Checks for a global .hoi.global.yml configuration file in the user's home directory.
 /// Returns the path to the global config file if it exists, or None if it doesn't.
-pub fn find_global_config_file() -> Option<PathBuf> {
-    let mut candidates = vec![];
+fn find_global_config_file() -> Option<PathBuf> {
+    if let Some(home_dir) = dirs_next::home_dir() {
+        // Create the global config path
+        let global_config = home_dir.join(".hoi").join(".hoi.global.yml");
 
-    if cfg!(target_os = "windows") {
-        // Try %APPDATA%\hoi\hoi.global.yml first
-        if let Some(roaming) = dirs_next::config_dir() {
-            candidates.push(roaming.join("hoi").join("hoi.global.yml"));
-        }
-        // Fallback to USERPROFILE\.hoi\hoi.global.yml
-        if let Some(home_dir) = dirs_next::home_dir() {
-            candidates.push(home_dir.join(".hoi").join("hoi.global.yml"));
-        }
-    } else {
-        // Unix-based systems: $HOME/.hoi/.hoi.global.yml
-        if let Some(home_dir) = dirs_next::home_dir() {
-            candidates.push(home_dir.join(".hoi").join(".hoi.global.yml"));
-        }
-    }
-
-    // Return the first existing path (canonicalize optional)
-    for path in candidates {
-        if path.exists() {
-            return Some(path);
+        if global_config.exists() {
+            return match global_config.canonicalize() {
+                Ok(path) => Some(path),
+                Err(_) => Some(global_config),
+            };
         }
     }
 
@@ -585,13 +572,14 @@ mod tests {
     #[test]
     fn test_find_global_config() {
         let temp_dir = TempDir::new().unwrap();
-        let global_config_path = create_global_test_config(temp_dir.path());
-
+        
         // Set the home dir environment variable
         #[cfg(not(windows))]
         env::set_var("HOME", temp_dir.path());
         #[cfg(windows)]
         env::set_var("USERPROFILE", temp_dir.path());
+        
+        let global_config_path = create_global_test_config(temp_dir.path());
 
         let result = find_global_config_file();
         assert!(result.is_some(), "Failed to find global config file");
