@@ -470,7 +470,7 @@ mod tests {
 
     fn create_global_test_config(home_dir: &Path) -> PathBuf {
         let hoi_dir = home_dir.join(".hoi");
-        fs::create_dir_all(&home_dir).unwrap();
+        fs::create_dir_all(&hoi_dir).unwrap();
 
         let config_path = hoi_dir.join(".hoi.global.yml");
         let mut file = File::create(&config_path).unwrap();
