@@ -7,8 +7,8 @@ use std::process::Command;
 use std::str;
 use tempfile::TempDir;
 
-fn create_test_config(dir: &Path) {
-    let config_path = dir.join(".hoi.yml");
+fn create_test_config(home_dir: &Path) {
+    let config_path = home_dir.join(".hoi.yml");
     let mut file = File::create(&config_path).unwrap();
     writeln!(file, "version: 1").unwrap();
     writeln!(file, "description: \"Integration test config\"").unwrap();
@@ -114,10 +114,6 @@ fn test_hoi_list_commands() {
 fn test_hoi_execute_command() {
     let temp_dir = TempDir::new().unwrap();
 
-    // Create both local and global configs
-    create_test_config(temp_dir.path());
-    create_global_test_config(temp_dir.path());
-
     // Set the HOME env var to our temp dir for testing
     #[cfg(not(windows))]
     let original_home = env::var("HOME").ok();
@@ -126,7 +122,11 @@ fn test_hoi_execute_command() {
     #[cfg(windows)]
     let original_home = env::var("USERPROFILE").ok();
     #[cfg(windows)]
-    env::set_var("USERPROFILE", temp_dir.path().to_string_lossy().to_string());
+    env::set_var("USERPROFILE", temp_dir.path());
+
+    // Create both local and global configs
+    create_test_config(&dirs_next::home_dir().unwrap());
+    create_global_test_config(&dirs_next::home_dir().unwrap());
 
     // First build the binary
     Command::new("cargo")
@@ -260,16 +260,6 @@ fn test_hoi_execute_command() {
 fn test_hoi_with_env_files() {
     let temp_dir = TempDir::new().unwrap();
     create_test_config_with_env_commands(temp_dir.path());
-
-    // Set the HOME env var to our temp dir for testing
-    #[cfg(not(windows))]
-    let original_home = env::var("HOME").ok();
-    #[cfg(not(windows))]
-    env::set_var("HOME", temp_dir.path());
-    #[cfg(windows)]
-    let original_home = env::var("USERPROFILE").ok();
-    #[cfg(windows)]
-    env::set_var("USERPROFILE", temp_dir.path().to_string_lossy().to_string());
 
     // Build the binary
     Command::new("cargo")
