@@ -136,11 +136,15 @@ fn test_hoi_execute_command() {
 
     let binary_path = get_binary_path();
 
-    let output = Command::new(binary_path)
-        .arg("echo-test")
-        .current_dir(temp_dir.path())
-        .output()
-        .expect("Failed to execute command");
+    let mut cmd = Command::new(&binary_path);
+    cmd.arg("echo-test").current_dir(temp_dir.path());
+
+    #[cfg(windows)]
+    cmd.env("USERPROFILE", temp_dir.path());
+    #[cfg(not(windows))]
+    cmd.env("HOME", temp_dir.path());
+
+    let output = cmd.output().expect("Failed to execute command");
 
     assert!(
         output.status.success(),
@@ -152,14 +156,9 @@ fn test_hoi_execute_command() {
     assert!(stdout.contains("Running command echo-test..."));
     assert!(stdout.contains("Integration test successful"));
 
-    let binary_path = get_binary_path();
+    cmd.arg("ge").current_dir(temp_dir.path());
 
-    // Test an alias
-    let output = Command::new(binary_path)
-        .arg("ge")
-        .current_dir(temp_dir.path())
-        .output()
-        .expect("Failed to execute command");
+    let output = cmd.output().expect("Failed to execute command");
 
     assert!(
         output.status.success(),
