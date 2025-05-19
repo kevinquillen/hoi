@@ -43,7 +43,6 @@ fn create_test_config_with_env_commands(dir: &Path) {
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  echo-env:").unwrap();
 
-    // Write command using platform-specific syntax
     #[cfg(windows)]
     writeln!(
         file,
