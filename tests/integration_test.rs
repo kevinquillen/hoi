@@ -83,7 +83,7 @@ fn test_hoi_execute_command() {
         let home_dir = dirs_next::home_dir().unwrap();
         let hoi_dir = home_dir.join(".hoi");
         fs::create_dir_all(&hoi_dir).unwrap();
-        
+
         copy_fixture(".hoi.global.yml", &hoi_dir, ".hoi.global.yml");
 
         // Build binary
@@ -221,11 +221,18 @@ fn copy_fixture(name: &str, target_dir: &Path, target_filename: &str) {
 
     #[cfg(windows)]
     let contents = contents
-        .replace(r#""Integration test successful""#, "Integration test successful")
-        .replace(r#""Global command successful""#, "Global command successful")
+        .replace(
+            r#""Integration test successful""#,
+            "Integration test successful",
+        )
+        .replace(
+            r#""Global command successful""#,
+            "Global command successful",
+        )
         .replace("$ENV_VAR", "%ENV_VAR%")
         .replace("$LOCAL_VAR", "%LOCAL_VAR%")
         .replace("$OVERRIDE_VAR", "%OVERRIDE_VAR%");
 
-    std::fs::write(target_dir.join(target_filename), contents).expect("Failed to write test config");
+    std::fs::write(target_dir.join(target_filename), contents)
+        .expect("Failed to write test config");
 }
