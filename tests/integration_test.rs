@@ -164,13 +164,6 @@ fn test_hoi_execute_command() {
         // Run alias for global command
         let output = run_hoi_command(&binary_path, &["ge"], temp_path);
 
-        if !output.status.success() {
-            eprintln!("Command 'ge' failed:");
-            eprintln!("  status: {}", output.status);
-            eprintln!("  stdout: {}", String::from_utf8_lossy(&output.stdout));
-            eprintln!("  stderr: {}", String::from_utf8_lossy(&output.stderr));
-        }
-
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("Global command successful"));
