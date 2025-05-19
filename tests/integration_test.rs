@@ -49,14 +49,14 @@ fn create_test_config_with_env_commands(dir: &Path) {
         file,
         "    cmd: echo ENV_VAR=%ENV_VAR% LOCAL_VAR=%LOCAL_VAR% OVERRIDE_VAR=%OVERRIDE_VAR%"
     )
-        .unwrap();
+    .unwrap();
 
     #[cfg(not(windows))]
     writeln!(
         file,
         "    cmd: echo \"ENV_VAR=$ENV_VAR LOCAL_VAR=$LOCAL_VAR OVERRIDE_VAR=$OVERRIDE_VAR\""
     )
-        .unwrap();
+    .unwrap();
 
     writeln!(file, "    description: \"Prints environment variables\"").unwrap();
 }
@@ -193,10 +193,7 @@ fn test_hoi_with_env_files() {
         let binary_path = get_binary_path();
 
         // Test 1: With .env file only
-        let env_vars = HashMap::from([
-            ("ENV_VAR", "env_value"),
-            ("OVERRIDE_VAR", "env_value"),
-        ]);
+        let env_vars = HashMap::from([("ENV_VAR", "env_value"), ("OVERRIDE_VAR", "env_value")]);
         create_env_config(temp_path, &env_vars);
 
         let output = Command::new(&binary_path)
@@ -244,9 +241,9 @@ fn test_hoi_with_env_files() {
             .expect("Failed to execute command with both .env and .env.local");
 
         let stdout = str::from_utf8(&output.stdout).unwrap();
-        assert!(stdout.contains("ENV_VAR=env_value"));         // from .env
-        assert!(stdout.contains("LOCAL_VAR=local_value"));     // from .env.local
-        assert!(stdout.contains("OVERRIDE_VAR=local_value"));  // .env.local overrides
+        assert!(stdout.contains("ENV_VAR=env_value")); // from .env
+        assert!(stdout.contains("LOCAL_VAR=local_value")); // from .env.local
+        assert!(stdout.contains("OVERRIDE_VAR=local_value")); // .env.local overrides
     });
 }
 

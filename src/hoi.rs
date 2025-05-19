@@ -61,10 +61,7 @@ fn default_entrypoint() -> Vec<String> {
     #[cfg(windows)]
     {
         // Use cmd.exe on Windows
-        vec![
-            "cmd".to_string(),
-            "/C".to_string(),
-        ]
+        vec!["cmd".to_string(), "/C".to_string()]
     }
 
     #[cfg(not(windows))]
@@ -73,7 +70,7 @@ fn default_entrypoint() -> Vec<String> {
             "bash".to_string(),
             "-e".to_string(),
             "-c".to_string(),
-            "$@".to_string()
+            "$@".to_string(),
         ]
     }
 }
