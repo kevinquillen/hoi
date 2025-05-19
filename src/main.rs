@@ -504,7 +504,12 @@ mod tests {
             hoi.description,
             "Hoi is designed to help teams standardize their development workflows."
         );
+        
+        #[cfg(not(windows))]
         assert_eq!(hoi.entrypoint, vec!["bash", "-e", "-c", "$@"]);
+        #[cfg(windows)]
+        assert_eq!(hoi.entrypoint, vec!["cmd", "/C"]);
+        
         assert_eq!(hoi.commands.len(), 2);
 
         // Verify commands are in insertion order

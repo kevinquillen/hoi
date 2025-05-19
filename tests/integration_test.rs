@@ -42,11 +42,22 @@ fn create_test_config_with_env_commands(dir: &Path) {
     writeln!(file, "description: \"Integration test config\"").unwrap();
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  echo-env:").unwrap();
+
+    // Write command using platform-specific syntax
+    #[cfg(windows)]
+    writeln!(
+        file,
+        "    cmd: echo ENV_VAR=%ENV_VAR% LOCAL_VAR=%LOCAL_VAR% OVERRIDE_VAR=%OVERRIDE_VAR%"
+    )
+        .unwrap();
+
+    #[cfg(not(windows))]
     writeln!(
         file,
         "    cmd: echo \"ENV_VAR=$ENV_VAR LOCAL_VAR=$LOCAL_VAR OVERRIDE_VAR=$OVERRIDE_VAR\""
     )
-    .unwrap();
+        .unwrap();
+
     writeln!(file, "    description: \"Prints environment variables\"").unwrap();
 }
 
@@ -163,101 +174,80 @@ fn test_hoi_execute_command() {
 #[test]
 fn test_hoi_with_env_files() {
     let temp_dir = TempDir::new().unwrap();
-    create_test_config_with_env_commands(temp_dir.path());
+    let temp_path = temp_dir.path();
 
-    // Build the binary
-    Command::new("cargo")
-        .args(["build"])
-        .status()
-        .expect("Failed to build hoi binary");
+    #[cfg(windows)]
+    let (env_var, env_val) = ("USERPROFILE", temp_path);
+    #[cfg(not(windows))]
+    let (env_var, env_val) = ("HOME", temp_path);
 
-    let binary_path = get_binary_path();
+    with_var(env_var, Some(env_val.to_str().unwrap()), || {
+        create_test_config_with_env_commands(temp_path);
 
-    // Test 1: With .env file only
-    let env_vars = HashMap::from([("ENV_VAR", "env_value"), ("OVERRIDE_VAR", "env_value")]);
-    create_env_config(temp_dir.path(), &env_vars);
+        // Build the binary
+        Command::new("cargo")
+            .args(["build"])
+            .status()
+            .expect("Failed to build hoi binary");
 
-    let env_output = Command::new(&binary_path)
-        .arg("echo-env")
-        .current_dir(temp_dir.path())
-        .output()
-        .expect("Failed to execute command with .env");
+        let binary_path = get_binary_path();
 
-    assert!(
-        env_output.status.success(),
-        "Command with .env failed with status: {:?}",
-        env_output.status
-    );
+        // Test 1: With .env file only
+        let env_vars = HashMap::from([
+            ("ENV_VAR", "env_value"),
+            ("OVERRIDE_VAR", "env_value"),
+        ]);
+        create_env_config(temp_path, &env_vars);
 
-    let env_stdout = str::from_utf8(&env_output.stdout).unwrap();
-    assert!(env_stdout.contains("ENV_VAR=env_value"));
-    assert!(!env_stdout.contains("LOCAL_VAR=local_value")); // LOCAL_VAR should be empty/undefined
-    assert!(env_stdout.contains("OVERRIDE_VAR=env_value"));
+        let output = Command::new(&binary_path)
+            .arg("echo-env")
+            .current_dir(temp_path)
+            .env(env_var, env_val)
+            .output()
+            .expect("Failed to execute command with .env");
 
-    // Cleanup .env file
-    fs::remove_file(temp_dir.path().join(".env")).unwrap();
+        let stdout = str::from_utf8(&output.stdout).unwrap();
+        assert!(stdout.contains("ENV_VAR=env_value"));
+        assert!(!stdout.contains("LOCAL_VAR=local_value")); // not yet set
+        assert!(stdout.contains("OVERRIDE_VAR=env_value"));
 
-    // Test 2: With .env.local file only
-    let env_local_vars = HashMap::from([
-        ("LOCAL_VAR", "local_value"),
-        ("OVERRIDE_VAR", "local_value"),
-    ]);
-    create_env_local_config(temp_dir.path(), &env_local_vars);
+        // Remove .env
+        fs::remove_file(temp_path.join(".env")).unwrap();
 
-    let env_local_output = Command::new(&binary_path)
-        .arg("echo-env")
-        .current_dir(temp_dir.path())
-        .output()
-        .expect("Failed to execute command with .env.local");
+        // Test 2: With .env.local file only
+        let env_local_vars = HashMap::from([
+            ("LOCAL_VAR", "local_value"),
+            ("OVERRIDE_VAR", "local_value"),
+        ]);
+        create_env_local_config(temp_path, &env_local_vars);
 
-    assert!(
-        env_local_output.status.success(),
-        "Command with .env.local failed with status: {:?}",
-        env_local_output.status
-    );
+        let output = Command::new(&binary_path)
+            .arg("echo-env")
+            .current_dir(temp_path)
+            .env(env_var, env_val)
+            .output()
+            .expect("Failed to execute command with .env.local");
 
-    let env_local_stdout = str::from_utf8(&env_local_output.stdout).unwrap();
-    assert!(!env_local_stdout.contains("ENV_VAR=env_value")); // ENV_VAR should be empty/undefined
-    assert!(env_local_stdout.contains("LOCAL_VAR=local_value"));
-    assert!(env_local_stdout.contains("OVERRIDE_VAR=local_value"));
+        let stdout = str::from_utf8(&output.stdout).unwrap();
+        assert!(!stdout.contains("ENV_VAR=env_value")); // should not be present
+        assert!(stdout.contains("LOCAL_VAR=local_value"));
+        assert!(stdout.contains("OVERRIDE_VAR=local_value")); // override
 
-    // Test 3: With both .env and .env.local files
-    create_env_config(temp_dir.path(), &env_vars);
+        // Test 3: With both .env and .env.local
+        create_env_config(temp_path, &env_vars); // add .env back
 
-    let both_output = Command::new(&binary_path)
-        .arg("echo-env")
-        .current_dir(temp_dir.path())
-        .output()
-        .expect("Failed to execute command with both .env and .env.local");
+        let output = Command::new(&binary_path)
+            .arg("echo-env")
+            .current_dir(temp_path)
+            .env(env_var, env_val)
+            .output()
+            .expect("Failed to execute command with both .env and .env.local");
 
-    assert!(
-        both_output.status.success(),
-        "Command with both .env and .env.local failed with status: {:?}",
-        both_output.status
-    );
-
-    let both_stdout = str::from_utf8(&both_output.stdout).unwrap();
-    assert!(both_stdout.contains("ENV_VAR=env_value")); // From .env
-    assert!(both_stdout.contains("LOCAL_VAR=local_value")); // From .env.local
-    assert!(both_stdout.contains("OVERRIDE_VAR=local_value")); // From .env.local (override)
-
-    // // Restore original environment variable if it existed
-    // #[cfg(not(windows))]
-    // {
-    //     if let Some(home) = original_home {
-    //         env::set_var("HOME", home);
-    //     } else {
-    //         env::remove_var("HOME");
-    //     }
-    // }
-    // #[cfg(windows)]
-    // {
-    //     if let Some(home) = original_home {
-    //         env::set_var("USERPROFILE", home);
-    //     } else {
-    //         env::remove_var("USERPROFILE");
-    //     }
-    // }
+        let stdout = str::from_utf8(&output.stdout).unwrap();
+        assert!(stdout.contains("ENV_VAR=env_value"));         // from .env
+        assert!(stdout.contains("LOCAL_VAR=local_value"));     // from .env.local
+        assert!(stdout.contains("OVERRIDE_VAR=local_value"));  // .env.local overrides
+    });
 }
 
 /// Helper to spawn the hoi binary with proper mocked HOME
