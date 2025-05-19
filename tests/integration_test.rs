@@ -8,17 +8,6 @@ use std::str;
 use temp_env::with_var;
 use tempfile::TempDir;
 
-fn create_test_config(dir: &Path) {
-    let config_path = dir.join(".hoi.yml");
-    let mut file = File::create(&config_path).unwrap();
-    writeln!(file, "version: 1").unwrap();
-    writeln!(file, "description: \"Integration test config\"").unwrap();
-    writeln!(file, "commands:").unwrap();
-    writeln!(file, "  echo-test:").unwrap();
-    writeln!(file, "    cmd: echo \"Integration test successful\"").unwrap();
-    writeln!(file, "    description: \"Prints a test success message\"").unwrap();
-}
-
 fn create_env_config(dir: &Path, vars: &HashMap<&str, &str>) {
     let env_path = dir.join(".env");
     let mut file = File::create(&env_path).unwrap();
@@ -33,50 +22,6 @@ fn create_env_local_config(dir: &Path, vars: &HashMap<&str, &str>) {
     for (key, value) in vars {
         writeln!(file, "{}={}", key, value).unwrap();
     }
-}
-
-fn create_test_config_with_env_commands(dir: &Path) {
-    let config_path = dir.join(".hoi.yml");
-    let mut file = File::create(&config_path).unwrap();
-    writeln!(file, "version: 1").unwrap();
-    writeln!(file, "description: \"Integration test config\"").unwrap();
-    writeln!(file, "commands:").unwrap();
-    writeln!(file, "  echo-env:").unwrap();
-
-    #[cfg(windows)]
-    writeln!(
-        file,
-        "    cmd: echo ENV_VAR=%ENV_VAR% LOCAL_VAR=%LOCAL_VAR% OVERRIDE_VAR=%OVERRIDE_VAR%"
-    )
-    .unwrap();
-
-    #[cfg(not(windows))]
-    writeln!(
-        file,
-        "    cmd: echo \"ENV_VAR=$ENV_VAR LOCAL_VAR=$LOCAL_VAR OVERRIDE_VAR=$OVERRIDE_VAR\""
-    )
-    .unwrap();
-
-    writeln!(file, "    description: \"Prints environment variables\"").unwrap();
-}
-
-fn create_global_test_config(dir: &Path) {
-    let hoi_dir = dir.join(".hoi");
-    fs::create_dir_all(&hoi_dir).unwrap();
-
-    let config_path = hoi_dir.join(".hoi.global.yml");
-    let mut file = File::create(&config_path).unwrap();
-    writeln!(file, "version: 1").unwrap();
-    writeln!(file, "description: \"Global integration test config\"").unwrap();
-    writeln!(file, "commands:").unwrap();
-    writeln!(file, "  global-echo:").unwrap();
-    writeln!(file, "    cmd: echo \"Global command successful\"").unwrap();
-    writeln!(file, "    alias: ge").unwrap();
-    writeln!(
-        file,
-        "    description: \"Prints a global command success message\""
-    )
-    .unwrap();
 }
 
 fn get_binary_path() -> PathBuf {
@@ -95,8 +40,8 @@ fn get_binary_path() -> PathBuf {
 #[test]
 fn test_hoi_list_commands() {
     let temp_dir = TempDir::new().unwrap();
-    create_test_config(temp_dir.path());
-    // First build the binary
+    copy_fixture(".hoi.yml", temp_dir.path(), ".hoi.yml");
+
     Command::new("cargo")
         .args(["build"])
         .status()
@@ -133,8 +78,13 @@ fn test_hoi_execute_command() {
 
     with_var(env_var, Some(env_val.to_str().unwrap()), || {
         // Set up config inside isolated "home"
-        create_test_config(temp_path);
-        create_global_test_config(&dirs_next::home_dir().unwrap());
+        copy_fixture(".hoi.yml", temp_path, ".hoi.yml");
+
+        let home_dir = dirs_next::home_dir().unwrap();
+        let hoi_dir = home_dir.join(".hoi");
+        fs::create_dir_all(&hoi_dir).unwrap();
+        
+        copy_fixture(".hoi.global.yml", &hoi_dir, ".hoi.global.yml");
 
         // Build binary
         Command::new("cargo")
@@ -182,7 +132,7 @@ fn test_hoi_with_env_files() {
     let (env_var, env_val) = ("HOME", temp_path);
 
     with_var(env_var, Some(env_val.to_str().unwrap()), || {
-        create_test_config_with_env_commands(temp_path);
+        copy_fixture(".hoi.yml", temp_path, ".hoi.yml");
 
         // Build the binary
         Command::new("cargo")
@@ -258,4 +208,24 @@ fn run_hoi_command(binary: &Path, args: &[&str], cwd: &Path) -> Output {
     cmd.env("USERPROFILE", cwd);
 
     cmd.output().expect("Failed to execute hoi binary")
+}
+
+fn copy_fixture(name: &str, target_dir: &Path, target_filename: &str) {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let src_path = Path::new(&manifest_dir)
+        .join("tests")
+        .join("fixtures")
+        .join(name);
+
+    let contents = std::fs::read_to_string(&src_path).expect("Failed to read fixture");
+
+    #[cfg(windows)]
+    let contents = contents
+        .replace(r#""Integration test successful""#, "Integration test successful")
+        .replace(r#""Global command successful""#, "Global command successful")
+        .replace("$ENV_VAR", "%ENV_VAR%")
+        .replace("$LOCAL_VAR", "%LOCAL_VAR%")
+        .replace("$OVERRIDE_VAR", "%OVERRIDE_VAR%");
+
+    std::fs::write(target_dir.join(target_filename), contents).expect("Failed to write test config");
 }
