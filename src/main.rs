@@ -186,7 +186,7 @@ fn display_commands(hoi: &Hoi) {
             "Command: {}, alias: {:?}, description: {:?}",
             name, command.alias, command.description
         );
-        
+
         builder.push_record([
             name,
             command.alias.as_deref().unwrap_or(""),
