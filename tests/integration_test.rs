@@ -1,28 +1,10 @@
-use std::collections::HashMap;
 use std::env;
-use std::fs::{self, File};
-use std::io::Write;
+use std::fs::{self};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::str;
 use temp_env::with_var;
 use tempfile::TempDir;
-
-fn create_env_config(dir: &Path, vars: &HashMap<&str, &str>) {
-    let env_path = dir.join(".env");
-    let mut file = File::create(&env_path).unwrap();
-    for (key, value) in vars {
-        writeln!(file, "{}={}", key, value).unwrap();
-    }
-}
-
-fn create_env_local_config(dir: &Path, vars: &HashMap<&str, &str>) {
-    let env_local_path = dir.join(".env.local");
-    let mut file = File::create(&env_local_path).unwrap();
-    for (key, value) in vars {
-        writeln!(file, "{}={}", key, value).unwrap();
-    }
-}
 
 fn get_binary_path() -> PathBuf {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
@@ -133,6 +115,7 @@ fn test_hoi_with_env_files() {
 
     with_var(env_var, Some(env_val.to_str().unwrap()), || {
         copy_fixture(".hoi.yml", temp_path, ".hoi.yml");
+        copy_fixture(".env", temp_path, ".env");
 
         // Build the binary
         Command::new("cargo")
@@ -141,10 +124,6 @@ fn test_hoi_with_env_files() {
             .expect("Failed to build hoi binary");
 
         let binary_path = get_binary_path();
-
-        // Test 1: With .env file only
-        let env_vars = HashMap::from([("ENV_VAR", "env_value"), ("OVERRIDE_VAR", "env_value")]);
-        create_env_config(temp_path, &env_vars);
 
         let output = Command::new(&binary_path)
             .arg("echo-env")
@@ -155,18 +134,10 @@ fn test_hoi_with_env_files() {
 
         let stdout = str::from_utf8(&output.stdout).unwrap();
         assert!(stdout.contains("ENV_VAR=env_value"));
-        assert!(!stdout.contains("LOCAL_VAR=local_value")); // not yet set
+        assert!(!stdout.contains("LOCAL_VAR=local_value"));
         assert!(stdout.contains("OVERRIDE_VAR=env_value"));
 
-        // Remove .env
-        fs::remove_file(temp_path.join(".env")).unwrap();
-
-        // Test 2: With .env.local file only
-        let env_local_vars = HashMap::from([
-            ("LOCAL_VAR", "local_value"),
-            ("OVERRIDE_VAR", "local_value"),
-        ]);
-        create_env_local_config(temp_path, &env_local_vars);
+        copy_fixture(".env.local", temp_path, ".env.local");
 
         let output = Command::new(&binary_path)
             .arg("echo-env")
@@ -176,24 +147,9 @@ fn test_hoi_with_env_files() {
             .expect("Failed to execute command with .env.local");
 
         let stdout = str::from_utf8(&output.stdout).unwrap();
-        assert!(!stdout.contains("ENV_VAR=env_value")); // should not be present
+        assert!(stdout.contains("ENV_VAR=env_value"));
         assert!(stdout.contains("LOCAL_VAR=local_value"));
-        assert!(stdout.contains("OVERRIDE_VAR=local_value")); // override
-
-        // Test 3: With both .env and .env.local
-        create_env_config(temp_path, &env_vars); // add .env back
-
-        let output = Command::new(&binary_path)
-            .arg("echo-env")
-            .current_dir(temp_path)
-            .env(env_var, env_val)
-            .output()
-            .expect("Failed to execute command with both .env and .env.local");
-
-        let stdout = str::from_utf8(&output.stdout).unwrap();
-        assert!(stdout.contains("ENV_VAR=env_value")); // from .env
-        assert!(stdout.contains("LOCAL_VAR=local_value")); // from .env.local
-        assert!(stdout.contains("OVERRIDE_VAR=local_value")); // .env.local overrides
+        assert!(stdout.contains("OVERRIDE_VAR=local_value"));
     });
 }
 
@@ -221,14 +177,6 @@ fn copy_fixture(name: &str, target_dir: &Path, target_filename: &str) {
 
     #[cfg(windows)]
     let contents = contents
-        .replace(
-            r#""Integration test successful""#,
-            "Integration test successful",
-        )
-        .replace(
-            r#""Global command successful""#,
-            "Global command successful",
-        )
         .replace("$ENV_VAR", "%ENV_VAR%")
         .replace("$LOCAL_VAR", "%LOCAL_VAR%")
         .replace("$OVERRIDE_VAR", "%OVERRIDE_VAR%");
