@@ -145,7 +145,7 @@ fn test_hoi_execute_command() {
     with_var(env_var, Some(env_val.to_str().unwrap()), || {
         // Set up config inside isolated "home"
         create_test_config(temp_path);
-        create_global_test_config(temp_path);
+        create_global_test_config(&dirs_next::home_dir().unwrap());
 
         // Build binary
         Command::new("cargo")
