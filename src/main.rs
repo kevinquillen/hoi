@@ -152,6 +152,7 @@ fn get_random_did_you_know() -> &'static str {
 /// # Returns                                                                                                                                                                                                                                                                                                                                                          
 /// * `Option<&String>` - The name of the command with the matching alias, or None if no match found                                                                                                                                                                                                                                                                    
 fn find_command_by_alias(hoi: &Hoi, alias: &str) -> Option<String> {
+    eprintln!("Looking for alias '{}'", alias);
     for (name, command) in &hoi.commands {
         if let Some(a) = &command.alias {
             if a == alias {
@@ -181,6 +182,11 @@ fn display_commands(hoi: &Hoi) {
     ]);
 
     for (name, command) in &hoi.commands {
+        eprintln!(
+            "Command: {}, alias: {:?}, description: {:?}",
+            name, command.alias, command.description
+        );
+        
         builder.push_record([
             name,
             command.alias.as_deref().unwrap_or(""),
