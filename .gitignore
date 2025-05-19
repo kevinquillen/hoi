@@ -2,3 +2,4 @@
 .idea
 .hoi.yml
 **/.claude/settings.local.json
+!tests/fixtures/**
