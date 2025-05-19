@@ -170,7 +170,7 @@ fn test_hoi_execute_command() {
             eprintln!("  stdout: {}", String::from_utf8_lossy(&output.stdout));
             eprintln!("  stderr: {}", String::from_utf8_lossy(&output.stderr));
         }
-        
+
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("Global command successful"));
