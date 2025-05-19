@@ -58,10 +58,19 @@ fn default_version() -> String {
 /// Returns the default entrypoint to use.
 /// This is used when no entrypoint is specified in the configuration file.
 fn default_entrypoint() -> Vec<String> {
-    vec![
-        "bash".to_string(),
-        "-e".to_string(),
-        "-c".to_string(),
-        "$@".to_string(),
-    ]
+    #[cfg(windows)]
+    {
+        // Use cmd.exe on Windows
+        vec!["cmd".to_string(), "/C".to_string()]
+    }
+
+    #[cfg(not(windows))]
+    {
+        vec![
+            "bash".to_string(),
+            "-e".to_string(),
+            "-c".to_string(),
+            "$@".to_string(),
+        ]
+    }
 }

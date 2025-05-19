@@ -24,7 +24,17 @@ fn find_config_file() -> Option<PathBuf> {
     loop {
         let config_path = dir.join(".hoi.yml");
         if config_path.exists() {
-            return Some(config_path);
+            // On Windows, avoid canonicalize() as it can lead to path format issues
+            #[cfg(not(windows))]
+            {
+                return config_path.canonicalize().ok().or(Some(config_path));
+            }
+
+            // For Windows, just return the path directly
+            #[cfg(windows)]
+            {
+                return Some(config_path);
+            }
         }
 
         if let Some(parent) = dir.parent() {
@@ -41,9 +51,14 @@ fn find_config_file() -> Option<PathBuf> {
 /// Returns the path to the global config file if it exists, or None if it doesn't.
 fn find_global_config_file() -> Option<PathBuf> {
     if let Some(home_dir) = dirs_next::home_dir() {
+        // Create the global config path
         let global_config = home_dir.join(".hoi").join(".hoi.global.yml");
+
         if global_config.exists() {
-            return Some(global_config);
+            return match global_config.canonicalize() {
+                Ok(path) => Some(path),
+                Err(_) => Some(global_config),
+            };
         }
     }
 
@@ -138,8 +153,10 @@ fn get_random_did_you_know() -> &'static str {
 /// * `Option<&String>` - The name of the command with the matching alias, or None if no match found                                                                                                                                                                                                                                                                    
 fn find_command_by_alias(hoi: &Hoi, alias: &str) -> Option<String> {
     for (name, command) in &hoi.commands {
-        if !command.alias.is_empty() && command.alias == alias {
-            return Some(name.clone());
+        if let Some(a) = &command.alias {
+            if a == alias {
+                return Some(name.clone());
+            }
         }
     }
     None
@@ -164,7 +181,11 @@ fn display_commands(hoi: &Hoi) {
     ]);
 
     for (name, command) in &hoi.commands {
-        builder.push_record([name, &command.alias, &command.description]);
+        builder.push_record([
+            name,
+            command.alias.as_deref().unwrap_or(""),
+            &command.description,
+        ]);
     }
 
     let mut table = builder.build();
@@ -406,7 +427,7 @@ mod tests {
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::{Path, PathBuf};
-    use tempfile::tempdir;
+    use tempfile::{tempdir, TempDir};
 
     fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
         let config_path = dir.join(filename);
@@ -453,8 +474,8 @@ mod tests {
         config_path
     }
 
-    fn create_global_test_config(dir: &Path) -> PathBuf {
-        let hoi_dir = dir.join(".hoi");
+    fn create_global_test_config(home_dir: &Path) -> PathBuf {
+        let hoi_dir = home_dir.join(".hoi");
         fs::create_dir_all(&hoi_dir).unwrap();
 
         let config_path = hoi_dir.join(".hoi.global.yml");
@@ -489,7 +510,12 @@ mod tests {
             hoi.description,
             "Hoi is designed to help teams standardize their development workflows."
         );
+
+        #[cfg(not(windows))]
         assert_eq!(hoi.entrypoint, vec!["bash", "-e", "-c", "$@"]);
+        #[cfg(windows)]
+        assert_eq!(hoi.entrypoint, vec!["cmd", "/C"]);
+
         assert_eq!(hoi.commands.len(), 2);
 
         // Verify commands are in insertion order
@@ -528,25 +554,71 @@ mod tests {
     fn test_find_config() {
         let temp_dir = tempdir().unwrap();
         let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
+
         // Override current directory for testing
         env::set_current_dir(temp_dir.path()).unwrap();
 
         let result = find_config_file();
         assert!(result.is_some(), "Failed to find config file");
-        assert_eq!(result.unwrap(), config_path);
+
+        // Platform-specific path comparison
+        #[cfg(not(windows))]
+        {
+            let canonical_path = config_path.canonicalize().ok().unwrap();
+            assert_eq!(result.unwrap(), canonical_path);
+        }
+
+        #[cfg(windows)]
+        {
+            let result_path = result.unwrap();
+            // For Windows, just check that the file exists and has the right name
+            assert!(result_path.exists(), "Result path does not exist");
+            assert_eq!(
+                result_path.file_name().unwrap(),
+                config_path.file_name().unwrap()
+            );
+        }
     }
 
     #[test]
     fn test_find_global_config() {
-        let temp_dir = tempdir().unwrap();
-        let global_config_path = create_global_test_config(temp_dir.path());
+        let temp_dir = TempDir::new().unwrap();
 
-        // Set the HOME env var to our temp dir for testing
+        // Set the home dir environment variable
+        #[cfg(not(windows))]
         env::set_var("HOME", temp_dir.path());
+        #[cfg(windows)]
+        env::set_var("USERPROFILE", temp_dir.path());
+
+        let global_config_path = create_global_test_config(&dirs_next::home_dir().unwrap());
 
         let result = find_global_config_file();
         assert!(result.is_some(), "Failed to find global config file");
-        assert_eq!(result.unwrap(), global_config_path);
+
+        let result_path = result.unwrap();
+
+        // Platform-specific path comparison
+        #[cfg(not(windows))]
+        {
+            let canonical_path = global_config_path.canonicalize().ok().unwrap();
+            assert_eq!(result_path, canonical_path);
+        }
+
+        #[cfg(windows)]
+        {
+            // For Windows, just check that the file exists and has the right name
+            assert!(result_path.exists(), "Result path does not exist");
+            assert_eq!(
+                result_path.file_name().unwrap(),
+                global_config_path.file_name().unwrap()
+            );
+
+            // Also verify the parent directory is correct
+            assert_eq!(
+                result_path.parent().unwrap().file_name().unwrap(),
+                global_config_path.parent().unwrap().file_name().unwrap()
+            );
+        }
     }
 
     #[test]
@@ -563,7 +635,12 @@ mod tests {
         );
 
         // Verify the config file was created
-        let config_path = temp_dir.path().join(".hoi.yml");
+        let config_path = temp_dir
+            .path()
+            .join(".hoi.yml")
+            .canonicalize()
+            .ok()
+            .unwrap();
         assert!(config_path.exists(), "Config file was not created");
 
         // Test that running init again when file exists doesn't overwrite it

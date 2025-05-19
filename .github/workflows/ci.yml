@@ -26,13 +26,21 @@ jobs:
       - name: Build
         run: cargo build
   test:
+    name: Test rust ${{ matrix.rust }} on ${{ matrix.os }}
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest }
+          - { os: macos-latest }
+          - { os: windows-latest }
     steps:
       - uses: actions/checkout@v4
       - uses: swatinem/rust-cache@v2
       - name: Run tests
-        run: cargo test -- --test-threads=1
+        run: cargo test
   release:
     name: Release - ${{ matrix.platform.os-name }}
     needs: test
