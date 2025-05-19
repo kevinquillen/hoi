@@ -181,7 +181,11 @@ fn display_commands(hoi: &Hoi) {
     ]);
 
     for (name, command) in &hoi.commands {
-        builder.push_record([name, command.alias.as_deref().unwrap_or(""), &command.description]);
+        builder.push_record([
+            name,
+            command.alias.as_deref().unwrap_or(""),
+            &command.description,
+        ]);
     }
 
     let mut table = builder.build();
