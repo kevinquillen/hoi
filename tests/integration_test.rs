@@ -76,7 +76,12 @@ fn create_global_test_config(dir: &Path) {
     writeln!(file, "description: \"Global integration test config\"").unwrap();
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  global-echo:").unwrap();
+
+    #[cfg(windows)]
+    writeln!(file, "    cmd: echo Global command successful").unwrap();
+    #[cfg(not(windows))]
     writeln!(file, "    cmd: echo \"Global command successful\"").unwrap();
+    
     writeln!(file, "    alias: ge").unwrap();
     writeln!(
         file,
