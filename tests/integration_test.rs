@@ -15,12 +15,7 @@ fn create_test_config(dir: &Path) {
     writeln!(file, "description: \"Integration test config\"").unwrap();
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  echo-test:").unwrap();
-
-    #[cfg(windows)]
-    writeln!(file, "    cmd: echo Integration test successful").unwrap();
-    #[cfg(not(windows))]
     writeln!(file, "    cmd: echo \"Integration test successful\"").unwrap();
-
     writeln!(file, "    description: \"Prints a test success message\"").unwrap();
 }
 
@@ -76,12 +71,7 @@ fn create_global_test_config(dir: &Path) {
     writeln!(file, "description: \"Global integration test config\"").unwrap();
     writeln!(file, "commands:").unwrap();
     writeln!(file, "  global-echo:").unwrap();
-
-    #[cfg(windows)]
-    writeln!(file, "    cmd: echo Global command successful").unwrap();
-    #[cfg(not(windows))]
     writeln!(file, "    cmd: echo \"Global command successful\"").unwrap();
-
     writeln!(file, "    alias: ge").unwrap();
     writeln!(
         file,
