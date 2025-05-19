@@ -7,8 +7,8 @@ use std::process::Command;
 use std::str;
 use tempfile::TempDir;
 
-fn create_test_config(home_dir: &Path) {
-    let config_path = home_dir.join(".hoi.yml");
+fn create_test_config(dir: &Path) {
+    let config_path = dir.join(".hoi.yml");
     let mut file = File::create(&config_path).unwrap();
     writeln!(file, "version: 1").unwrap();
     writeln!(file, "description: \"Integration test config\"").unwrap();
@@ -337,21 +337,21 @@ fn test_hoi_with_env_files() {
     assert!(both_stdout.contains("LOCAL_VAR=local_value")); // From .env.local
     assert!(both_stdout.contains("OVERRIDE_VAR=local_value")); // From .env.local (override)
 
-    // Restore original environment variable if it existed
-    #[cfg(not(windows))]
-    {
-        if let Some(home) = original_home {
-            env::set_var("HOME", home);
-        } else {
-            env::remove_var("HOME");
-        }
-    }
-    #[cfg(windows)]
-    {
-        if let Some(home) = original_home {
-            env::set_var("USERPROFILE", home);
-        } else {
-            env::remove_var("USERPROFILE");
-        }
-    }
+    // // Restore original environment variable if it existed
+    // #[cfg(not(windows))]
+    // {
+    //     if let Some(home) = original_home {
+    //         env::set_var("HOME", home);
+    //     } else {
+    //         env::remove_var("HOME");
+    //     }
+    // }
+    // #[cfg(windows)]
+    // {
+    //     if let Some(home) = original_home {
+    //         env::set_var("USERPROFILE", home);
+    //     } else {
+    //         env::remove_var("USERPROFILE");
+    //     }
+    // }
 }
