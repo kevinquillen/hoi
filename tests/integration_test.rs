@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::str;
+use temp_env::with_var;
 use tempfile::TempDir;
 
 fn create_test_config(dir: &Path) {
@@ -113,73 +114,50 @@ fn test_hoi_list_commands() {
 #[test]
 fn test_hoi_execute_command() {
     let temp_dir = TempDir::new().unwrap();
+    let temp_path = temp_dir.path();
 
-    // Set the HOME env var to our temp dir for testing
-    #[cfg(not(windows))]
-    let original_home = env::var("HOME").ok();
-    #[cfg(not(windows))]
-    env::set_var("HOME", temp_dir.path());
     #[cfg(windows)]
-    let original_home = env::var("USERPROFILE").ok();
-    #[cfg(windows)]
-    env::set_var("USERPROFILE", temp_dir.path());
-
-    // Create both local and global configs
-    create_test_config(temp_dir.path());
-    create_global_test_config(&dirs_next::home_dir().unwrap());
-
-    // First build the binary
-    Command::new("cargo")
-        .args(["build"])
-        .status()
-        .expect("Failed to build hoi binary");
-
-    let binary_path = get_binary_path();
-
-    // Run a local command
-    let output = run_hoi_command(&binary_path, &["echo-test"], temp_dir.path());
-    assert!(output.status.success(), "echo-test failed");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Running command echo-test..."));
-    assert!(stdout.contains("Integration test successful"));
-
-    // Run an alias that maps to a global command
-    let output = run_hoi_command(&binary_path, &["ge"], temp_dir.path());
-    assert!(output.status.success(), "alias ge failed");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Running command ge..."));
-    assert!(stdout.contains("Global command successful"));
-
-    // List commands — should include global ones
-    let output = run_hoi_command(&binary_path, &[], temp_dir.path());
-    assert!(output.status.success(), "list command failed");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("global-echo"));
-
-    // Explicit global command
-    let output = run_hoi_command(&binary_path, &["global-echo"], temp_dir.path());
-    assert!(output.status.success(), "global-echo failed");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Running command global-echo..."));
-    assert!(stdout.contains("Global command successful"));
-
-    // Restore original environment variable if it existed
+    let (env_var, env_val) = ("USERPROFILE", temp_path);
     #[cfg(not(windows))]
-    {
-        if let Some(home) = original_home {
-            env::set_var("HOME", home);
-        } else {
-            env::remove_var("HOME");
-        }
-    }
-    #[cfg(windows)]
-    {
-        if let Some(home) = original_home {
-            env::set_var("USERPROFILE", home);
-        } else {
-            env::remove_var("USERPROFILE");
-        }
-    }
+    let (env_var, env_val) = ("HOME", temp_path);
+
+    with_var(env_var, Some(env_val.to_str().unwrap()), || {
+        // Set up config inside isolated "home"
+        create_test_config(temp_path);
+        create_global_test_config(temp_path);
+
+        // Build binary
+        Command::new("cargo")
+            .args(["build"])
+            .status()
+            .expect("Failed to build hoi binary");
+
+        let binary_path = get_binary_path();
+
+        // Run local command
+        let output = run_hoi_command(&binary_path, &["echo-test"], temp_path);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("Integration test successful"));
+
+        // Run alias for global command
+        let output = run_hoi_command(&binary_path, &["ge"], temp_path);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("Global command successful"));
+
+        // List commands (should include global)
+        let output = run_hoi_command(&binary_path, &[], temp_path);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("global-echo"));
+
+        // Run global command explicitly
+        let output = run_hoi_command(&binary_path, &["global-echo"], temp_path);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("Global command successful"));
+    });
 }
 
 #[test]
