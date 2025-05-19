@@ -153,7 +153,7 @@ fn get_random_did_you_know() -> &'static str {
 /// * `Option<&String>` - The name of the command with the matching alias, or None if no match found                                                                                                                                                                                                                                                                    
 fn find_command_by_alias(hoi: &Hoi, alias: &str) -> Option<String> {
     for (name, command) in &hoi.commands {
-        if !command.alias.is_empty() && command.alias == alias {
+        if !command.alias.trim_end().is_empty() && command.alias.trim_end() == alias {
             return Some(name.clone());
         }
     }
