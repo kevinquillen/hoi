@@ -1,0 +1,9 @@
+version: 1
+description: "Integration test config"
+commands:
+  echo-test:
+    cmd: echo "Integration test successful"
+    description: "Prints a test success message"
+  echo-env:
+    cmd: echo "ENV_VAR=$ENV_VAR LOCAL_VAR=$LOCAL_VAR OVERRIDE_VAR=$OVERRIDE_VAR"
+    description: "Prints environment variables"

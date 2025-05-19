@@ -1,0 +1,7 @@
+version: 1
+description: "Global integration test config"
+commands:
+  global-echo:
+    cmd: echo "Global command successful"
+    alias: ge
+    description: "Prints a global command success message"
