@@ -125,7 +125,7 @@ fn test_hoi_execute_command() {
     env::set_var("USERPROFILE", temp_dir.path());
 
     // Create both local and global configs
-    create_test_config(&dirs_next::home_dir().unwrap());
+    create_test_config(temp_dir.path());
     create_global_test_config(&dirs_next::home_dir().unwrap());
 
     // First build the binary
