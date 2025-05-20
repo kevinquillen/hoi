@@ -513,7 +513,13 @@ mod tests {
                 // Also verify the parent directory is correct
                 assert_eq!(
                     result_path.parent().unwrap().file_name().unwrap(),
-                    hoi_dir.join(".hoi.global.yml").unwrap().parent().unwrap().file_name().unwrap()
+                    hoi_dir
+                        .join(".hoi.global.yml")
+                        .unwrap()
+                        .parent()
+                        .unwrap()
+                        .file_name()
+                        .unwrap()
                 );
             }
         });
