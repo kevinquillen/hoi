@@ -636,11 +636,7 @@ mod tests {
         );
 
         // Verify the config file was created
-        let config_path = temp_dir
-            .join(".hoi.yml")
-            .canonicalize()
-            .ok()
-            .unwrap();
+        let config_path = temp_dir.join(".hoi.yml").canonicalize().ok().unwrap();
         assert!(config_path.exists(), "Config file was not created");
 
         // Test that running init again when file exists doesn't overwrite it
