@@ -507,13 +507,13 @@ mod tests {
                 assert!(result_path.exists(), "Result path does not exist");
                 assert_eq!(
                     result_path.file_name().unwrap(),
-                    temp_dir.file_name().unwrap()
+                    hoi_dir.join(".hoi.global.yml").file_name().unwrap()
                 );
 
                 // Also verify the parent directory is correct
                 assert_eq!(
                     result_path.parent().unwrap().file_name().unwrap(),
-                    temp_dir.unwrap().parent().unwrap().file_name().unwrap()
+                    hoi_dir.join(".hoi.global.yml").unwrap().parent().unwrap().file_name().unwrap()
                 );
             }
         });
