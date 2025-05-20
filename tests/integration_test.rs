@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::str;
 use temp_env::with_var;
-use tempfile::TempDir;
+use testdir::testdir;
 
 fn get_binary_path() -> PathBuf {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
@@ -21,8 +21,8 @@ fn get_binary_path() -> PathBuf {
 
 #[test]
 fn test_hoi_list_commands() {
-    let temp_dir = TempDir::new().unwrap();
-    copy_fixture(".hoi.yml", temp_dir.path(), ".hoi.yml");
+    let temp_dir: PathBuf = testdir!();
+    copy_fixture(".hoi.yml", &temp_dir, ".hoi.yml");
 
     Command::new("cargo")
         .args(["build"])
@@ -31,7 +31,7 @@ fn test_hoi_list_commands() {
 
     let binary_path = get_binary_path();
     let output = Command::new(binary_path)
-        .current_dir(temp_dir.path())
+        .current_dir(&temp_dir)
         .output()
         .expect("Failed to execute command");
 
@@ -50,17 +50,16 @@ fn test_hoi_list_commands() {
 
 #[test]
 fn test_hoi_execute_command() {
-    let temp_dir = TempDir::new().unwrap();
-    let temp_path = temp_dir.path();
+    let temp_dir: PathBuf = testdir!();
 
     #[cfg(windows)]
-    let (env_var, env_val) = ("USERPROFILE", temp_path);
+    let (env_var, env_val) = ("USERPROFILE", &temp_dir);
     #[cfg(not(windows))]
-    let (env_var, env_val) = ("HOME", temp_path);
+    let (env_var, env_val) = ("HOME", &temp_dir);
 
     with_var(env_var, Some(env_val.to_str().unwrap()), || {
         // Set up config inside isolated "home"
-        copy_fixture(".hoi.yml", temp_path, ".hoi.yml");
+        copy_fixture(".hoi.yml", &temp_dir, ".hoi.yml");
 
         let home_dir = dirs_next::home_dir().unwrap();
         let hoi_dir = home_dir.join(".hoi");
@@ -77,26 +76,26 @@ fn test_hoi_execute_command() {
         let binary_path = get_binary_path();
 
         // Run local command
-        let output = run_hoi_command(&binary_path, &["echo-test"], temp_path);
+        let output = run_hoi_command(&binary_path, &["echo-test"], &temp_dir);
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("Integration test successful"));
 
         // Run alias for global command
-        let output = run_hoi_command(&binary_path, &["ge"], temp_path);
+        let output = run_hoi_command(&binary_path, &["ge"], &temp_dir);
 
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("Global command successful"));
 
         // List commands (should include global)
-        let output = run_hoi_command(&binary_path, &[], temp_path);
+        let output = run_hoi_command(&binary_path, &[], &temp_dir);
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("global-echo"));
 
         // Run global command explicitly
-        let output = run_hoi_command(&binary_path, &["global-echo"], temp_path);
+        let output = run_hoi_command(&binary_path, &["global-echo"], &temp_dir);
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("Global command successful"));
@@ -105,17 +104,16 @@ fn test_hoi_execute_command() {
 
 #[test]
 fn test_hoi_with_env_files() {
-    let temp_dir = TempDir::new().unwrap();
-    let temp_path = temp_dir.path();
+    let temp_dir: PathBuf = testdir!();
 
     #[cfg(windows)]
-    let (env_var, env_val) = ("USERPROFILE", temp_path);
+    let (env_var, env_val) = ("USERPROFILE", &temp_dir);
     #[cfg(not(windows))]
-    let (env_var, env_val) = ("HOME", temp_path);
+    let (env_var, env_val) = ("HOME", &temp_dir);
 
     with_var(env_var, Some(env_val.to_str().unwrap()), || {
-        copy_fixture(".hoi.yml", temp_path, ".hoi.yml");
-        copy_fixture(".env", temp_path, ".env");
+        copy_fixture(".hoi.yml", &temp_dir, ".hoi.yml");
+        copy_fixture(".env", &temp_dir, ".env");
 
         // Build the binary
         Command::new("cargo")
@@ -127,7 +125,7 @@ fn test_hoi_with_env_files() {
 
         let output = Command::new(&binary_path)
             .arg("echo-env")
-            .current_dir(temp_path)
+            .current_dir(&temp_dir)
             .env(env_var, env_val)
             .output()
             .expect("Failed to execute command with .env");
@@ -137,11 +135,11 @@ fn test_hoi_with_env_files() {
         assert!(!stdout.contains("LOCAL_VAR=local_value"));
         assert!(stdout.contains("OVERRIDE_VAR=env_value"));
 
-        copy_fixture(".env.local", temp_path, ".env.local");
+        copy_fixture(".env.local", &temp_dir, ".env.local");
 
         let output = Command::new(&binary_path)
             .arg("echo-env")
-            .current_dir(temp_path)
+            .current_dir(&temp_dir)
             .env(env_var, env_val)
             .output()
             .expect("Failed to execute command with .env.local");
