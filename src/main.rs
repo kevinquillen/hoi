@@ -423,12 +423,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utilities::copy_fixture;
     use std::env;
     use std::fs::{self};
-    use std::path::{PathBuf};
+    use std::path::PathBuf;
     use temp_env::with_var;
     use testdir::testdir;
+    use utilities::copy_fixture;
 
     #[test]
     fn test_custom_entrypoint() {
@@ -477,7 +477,7 @@ mod tests {
     #[test]
     fn test_find_global_config() {
         let temp_dir: PathBuf = testdir!();
-        
+
         #[cfg(not(windows))]
         let (env_var, env_val) = ("HOME", &temp_dir);
         #[cfg(windows)]
