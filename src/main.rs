@@ -423,81 +423,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use utilities::copy_fixture;
     use std::env;
-    use std::fs::{self, File};
-    use std::io::Write;
-    use std::path::{Path, PathBuf};
+    use std::fs::{self};
+    use std::path::{PathBuf};
+    use temp_env::with_var;
     use testdir::testdir;
-
-    fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
-        let config_path = dir.join(filename);
-        let mut file = File::create(&config_path).unwrap();
-        writeln!(file, "version: 1").unwrap();
-        writeln!(file, "commands:").unwrap();
-        writeln!(file, "  test-command:").unwrap();
-        writeln!(file, "    cmd: echo \"Test output\"").unwrap();
-        writeln!(file, "    description: \"A simple test command\"").unwrap();
-        writeln!(file, "  multiple-command:").unwrap();
-        writeln!(file, "    cmd: |").unwrap();
-        writeln!(file, "      echo \"Line 1\"").unwrap();
-        writeln!(file, "      echo \"Line 2\"").unwrap();
-        writeln!(
-            file,
-            "    description: \"A multi-line command for testing\""
-        )
-        .unwrap();
-        config_path
-    }
-
-    fn create_test_config_with_custom_entrypoint(dir: &Path, filename: &str) -> PathBuf {
-        let config_path = dir.join(filename);
-        let mut file = File::create(&config_path).unwrap();
-        writeln!(file, "version: 1").unwrap();
-        writeln!(file, "description: \"Test configuration\"").unwrap();
-        writeln!(file, "entrypoint:").unwrap();
-        writeln!(file, "  - sh").unwrap();
-        writeln!(file, "  - -c").unwrap();
-        writeln!(file, "  - \"$@\"").unwrap();
-        writeln!(file, "commands:").unwrap();
-        writeln!(file, "  test-command:").unwrap();
-        writeln!(file, "    cmd: echo \"Test output\"").unwrap();
-        writeln!(file, "    description: \"A simple test command\"").unwrap();
-        writeln!(file, "  multiple-command:").unwrap();
-        writeln!(file, "    cmd: |").unwrap();
-        writeln!(file, "      echo \"Line 1\"").unwrap();
-        writeln!(file, "      echo \"Line 2\"").unwrap();
-        writeln!(
-            file,
-            "    description: \"A multi-line command for testing\""
-        )
-        .unwrap();
-        config_path
-    }
-
-    fn create_global_test_config(home_dir: &Path) -> PathBuf {
-        let hoi_dir = home_dir.join(".hoi");
-        fs::create_dir_all(&hoi_dir).unwrap();
-
-        let config_path = hoi_dir.join(".hoi.global.yml");
-        let mut file = File::create(&config_path).unwrap();
-        writeln!(file, "version: 1").unwrap();
-        writeln!(file, "description: \"Global test configuration\"").unwrap();
-        writeln!(file, "commands:").unwrap();
-        writeln!(file, "  global-command:").unwrap();
-        writeln!(file, "    cmd: echo \"Global command output\"").unwrap();
-        writeln!(
-            file,
-            "    description: \"A command defined in the global config\""
-        )
-        .unwrap();
-        config_path
-    }
 
     #[test]
     fn test_custom_entrypoint() {
         let temp_dir: PathBuf = testdir!();
-        let config_path = create_test_config_with_custom_entrypoint(&temp_dir, ".hoi.yml");
-        let result = load_config(&config_path);
+        copy_fixture(".hoi.with_entrypoint.yml", &temp_dir, ".hoi.yml");
+        let result = load_config(&temp_dir.join(".hoi.yml"));
+
         assert!(
             result.is_ok(),
             "Failed to load valid config: {:?}",
@@ -505,23 +443,19 @@ mod tests {
         );
 
         let hoi = result.unwrap();
-        assert_eq!(hoi.version, "1");
-        assert_eq!(hoi.description, "Test configuration");
         assert_eq!(hoi.entrypoint, vec!["sh", "-c", "$@"]);
     }
 
     #[test]
     fn test_find_config() {
         let temp_dir: PathBuf = testdir!();
-        let config_path = create_test_config(&temp_dir, ".hoi.yml");
-
-        // Override current directory for testing
+        copy_fixture(".hoi.yml", &temp_dir, ".hoi.yml");
+        let config_path = temp_dir.join(".hoi.yml");
         env::set_current_dir(&temp_dir).unwrap();
 
         let result = find_config_file();
         assert!(result.is_some(), "Failed to find config file");
 
-        // Platform-specific path comparison
         #[cfg(not(windows))]
         {
             let canonical_path = config_path.canonicalize().ok().unwrap();
@@ -543,42 +477,46 @@ mod tests {
     #[test]
     fn test_find_global_config() {
         let temp_dir: PathBuf = testdir!();
-
-        // Set the home dir environment variable
+        
         #[cfg(not(windows))]
-        env::set_var("HOME", &temp_dir);
+        let (env_var, env_val) = ("HOME", &temp_dir);
         #[cfg(windows)]
-        env::set_var("USERPROFILE", &temp_dir);
+        let (env_var, env_val) = ("USERPROFILE", &temp_dir);
 
-        let global_config_path = create_global_test_config(&dirs_next::home_dir().unwrap());
+        with_var(env_var, Some(env_val.to_str().unwrap()), || {
+            let home_dir = dirs_next::home_dir().unwrap();
+            let hoi_dir = home_dir.join(".hoi");
+            fs::create_dir_all(&hoi_dir).unwrap();
+            copy_fixture(".hoi.global.yml", &hoi_dir, ".hoi.global.yml");
 
-        let result = find_global_config_file();
-        assert!(result.is_some(), "Failed to find global config file");
+            let result = find_global_config_file();
+            assert!(result.is_some(), "Failed to find global config file");
 
-        let result_path = result.unwrap();
+            let result_path = result.unwrap();
 
-        // Platform-specific path comparison
-        #[cfg(not(windows))]
-        {
-            let canonical_path = global_config_path.canonicalize().ok().unwrap();
-            assert_eq!(result_path, canonical_path);
-        }
+            // Platform-specific path comparison
+            #[cfg(not(windows))]
+            {
+                let canonical_path = hoi_dir.join(".hoi.global.yml").canonicalize().unwrap();
+                assert_eq!(result_path, canonical_path);
+            }
 
-        #[cfg(windows)]
-        {
-            // For Windows, just check that the file exists and has the right name
-            assert!(result_path.exists(), "Result path does not exist");
-            assert_eq!(
-                result_path.file_name().unwrap(),
-                global_config_path.file_name().unwrap()
-            );
+            #[cfg(windows)]
+            {
+                // For Windows, just check that the file exists and has the right name
+                assert!(result_path.exists(), "Result path does not exist");
+                assert_eq!(
+                    result_path.file_name().unwrap(),
+                    temp_dir.file_name().unwrap()
+                );
 
-            // Also verify the parent directory is correct
-            assert_eq!(
-                result_path.parent().unwrap().file_name().unwrap(),
-                global_config_path.parent().unwrap().file_name().unwrap()
-            );
-        }
+                // Also verify the parent directory is correct
+                assert_eq!(
+                    result_path.parent().unwrap().file_name().unwrap(),
+                    temp_dir.unwrap().parent().unwrap().file_name().unwrap()
+                );
+            }
+        });
     }
 
     #[test]

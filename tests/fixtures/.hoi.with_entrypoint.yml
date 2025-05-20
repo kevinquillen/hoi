@@ -1,0 +1,10 @@
+version: 1
+description: "Test"
+entrypoint:
+  - sh
+  - -c
+  - "$@"
+commands:
+  echo-test:
+    cmd: echo "Test"
+    description: "Prints a test success message"

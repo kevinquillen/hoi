@@ -187,6 +187,7 @@ dependencies = [
  "temp-env",
  "testdir",
  "thiserror 2.0.12",
+ "utilities",
  "winapi",
 ]
 
@@ -628,6 +629,10 @@ name = "unsafe-libyaml"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
+
+[[package]]
+name = "utilities"
+version = "0.0.0"
 
 [[package]]
 name = "wasi"

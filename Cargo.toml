@@ -31,3 +31,4 @@ dotenvy = "0.15.7"
 [dev-dependencies]
 temp-env = "0.3"
 testdir = "0.9"
+utilities = { path = "utilities" }

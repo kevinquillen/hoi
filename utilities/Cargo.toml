@@ -1,0 +1,4 @@
+[package]
+name = "utilities"
+edition = "2021"
+authors = ["Kevin Quillen <kevinquillen@gmail.com>"]
