@@ -428,6 +428,7 @@ mod tests {
     use std::io::Write;
     use std::path::{Path, PathBuf};
     use tempfile::{tempdir, TempDir};
+    use testdir::testdir;
 
     fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
         let config_path = dir.join(filename);
@@ -495,8 +496,8 @@ mod tests {
 
     #[test]
     fn test_load_config() {
-        let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
+        let temp_dir: PathBuf = testdir!();
+        let config_path = create_test_config(&temp_dir, ".hoi.yml");
         let result = load_config(&config_path);
         assert!(
             result.is_ok(),
@@ -535,8 +536,8 @@ mod tests {
 
     #[test]
     fn test_custom_entrypoint() {
-        let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config_with_custom_entrypoint(temp_dir.path(), ".hoi.yml");
+        let temp_dir: PathBuf = testdir!();
+        let config_path = create_test_config_with_custom_entrypoint(&temp_dir, ".hoi.yml");
         let result = load_config(&config_path);
         assert!(
             result.is_ok(),
@@ -552,11 +553,11 @@ mod tests {
 
     #[test]
     fn test_find_config() {
-        let temp_dir = tempdir().unwrap();
-        let config_path = create_test_config(temp_dir.path(), ".hoi.yml");
+        let temp_dir: PathBuf = testdir!();
+        let config_path = create_test_config(&temp_dir, ".hoi.yml");
 
         // Override current directory for testing
-        env::set_current_dir(temp_dir.path()).unwrap();
+        env::set_current_dir(&temp_dir).unwrap();
 
         let result = find_config_file();
         assert!(result.is_some(), "Failed to find config file");
@@ -582,13 +583,13 @@ mod tests {
 
     #[test]
     fn test_find_global_config() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir: PathBuf = testdir!();
 
         // Set the home dir environment variable
         #[cfg(not(windows))]
-        env::set_var("HOME", temp_dir.path());
+        env::set_var("HOME", &temp_dir);
         #[cfg(windows)]
-        env::set_var("USERPROFILE", temp_dir.path());
+        env::set_var("USERPROFILE", &temp_dir);
 
         let global_config_path = create_global_test_config(&dirs_next::home_dir().unwrap());
 
@@ -623,8 +624,8 @@ mod tests {
 
     #[test]
     fn test_init_command() {
-        let temp_dir = tempdir().unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
+        let temp_dir: PathBuf = testdir!();
+        env::set_current_dir(&temp_dir).unwrap();
 
         // Run the init config function
         let result = create_init_config();
@@ -636,7 +637,6 @@ mod tests {
 
         // Verify the config file was created
         let config_path = temp_dir
-            .path()
             .join(".hoi.yml")
             .canonicalize()
             .ok()
@@ -668,8 +668,8 @@ mod tests {
 
     #[test]
     fn test_environment_loading() {
-        let temp_dir = tempdir().unwrap();
-        let dir_path = temp_dir.path();
+        let temp_dir: PathBuf = testdir!();
+        let dir_path = &temp_dir;
 
         // Set a pre-existing environment variable to test override behavior
         env::set_var("PRE_EXISTING_VAR", "original_value");

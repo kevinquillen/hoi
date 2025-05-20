@@ -32,3 +32,4 @@ dotenvy = "0.15.7"
 [dev-dependencies]
 tempfile = "3.8"
 temp-env = "0.3"
+testdir = "0.9"
