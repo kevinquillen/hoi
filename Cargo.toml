@@ -23,13 +23,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 tabled = "0.18.0"
 thiserror = "2.0.12"
-walkdir = "2.4"
 dirs-next = "2.0"
 indexmap = { version = "2.0", features = ["serde"] }
 rand = "0.8.5"
 dotenvy = "0.15.7"
 
 [dev-dependencies]
-tempfile = "3.8"
 temp-env = "0.3"
 testdir = "0.9"
+utilities = { path = "utilities" }
