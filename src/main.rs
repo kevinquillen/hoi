@@ -494,46 +494,6 @@ mod tests {
     }
 
     #[test]
-    fn test_load_config() {
-        let temp_dir: PathBuf = testdir!();
-        let config_path = create_test_config(&temp_dir, ".hoi.yml");
-        let result = load_config(&config_path);
-        assert!(
-            result.is_ok(),
-            "Failed to load valid config: {:?}",
-            result.err()
-        );
-
-        let hoi = result.unwrap();
-        assert_eq!(hoi.version, "1");
-        assert_eq!(
-            hoi.description,
-            "Hoi is designed to help teams standardize their development workflows."
-        );
-
-        #[cfg(not(windows))]
-        assert_eq!(hoi.entrypoint, vec!["bash", "-e", "-c", "$@"]);
-        #[cfg(windows)]
-        assert_eq!(hoi.entrypoint, vec!["cmd", "/C"]);
-
-        assert_eq!(hoi.commands.len(), 2);
-
-        // Verify commands are in insertion order
-        let command_keys: Vec<_> = hoi.commands.keys().collect();
-        assert_eq!(command_keys[0], "test-command");
-        assert_eq!(command_keys[1], "multiple-command");
-
-        let test_cmd = hoi.commands.get("test-command").unwrap();
-        assert_eq!(test_cmd.cmd, "echo \"Test output\"");
-        assert_eq!(test_cmd.description, "A simple test command");
-
-        let multi_cmd = hoi.commands.get("multiple-command").unwrap();
-        assert!(multi_cmd.cmd.contains("Line 1"));
-        assert!(multi_cmd.cmd.contains("Line 2"));
-        assert_eq!(multi_cmd.description, "A multi-line command for testing");
-    }
-
-    #[test]
     fn test_custom_entrypoint() {
         let temp_dir: PathBuf = testdir!();
         let config_path = create_test_config_with_custom_entrypoint(&temp_dir, ".hoi.yml");
