@@ -427,7 +427,6 @@ mod tests {
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::{Path, PathBuf};
-    use tempfile::{tempdir, TempDir};
     use testdir::testdir;
 
     fn create_test_config(dir: &Path, filename: &str) -> PathBuf {
