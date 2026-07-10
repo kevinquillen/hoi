@@ -1,166 +1,242 @@
-use std::env;
-use std::fs::{self};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-use std::str;
-use temp_env::with_var;
 use testdir::testdir;
 use utilities::copy_fixture;
 
-fn get_binary_path() -> PathBuf {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
-    let profile = if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "release"
-    };
-    Path::new(&manifest_dir)
-        .join("target")
-        .join(profile)
-        .join("hoi")
+fn binary() -> PathBuf {
+    PathBuf::from(env!("CARGO_BIN_EXE_hoi"))
+}
+
+fn run_hoi(args: &[&str], cwd: &Path, home: &Path) -> Output {
+    let mut command = Command::new(binary());
+    command.args(args).current_dir(cwd);
+    #[cfg(not(windows))]
+    command.env("HOME", home);
+    #[cfg(windows)]
+    command.env("USERPROFILE", home);
+    command.output().expect("failed to execute hoi")
+}
+
+fn output_text(output: &Output) -> (String, String) {
+    (
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
 }
 
 #[test]
-fn test_hoi_list_commands() {
-    let temp_dir: PathBuf = testdir!();
-    copy_fixture(".hoi.yml", &temp_dir, ".hoi.yml");
+fn lists_and_executes_local_and_global_commands() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(home.join(".hoi")).unwrap();
+    copy_fixture(".hoi.yml", &root, ".hoi.yml");
+    copy_fixture(".hoi.global.yml", &home.join(".hoi"), ".hoi.global.yml");
 
-    Command::new("cargo")
-        .args(["build"])
-        .status()
-        .expect("Failed to build hoi binary");
-
-    let binary_path = get_binary_path();
-    let output = Command::new(binary_path)
-        .current_dir(&temp_dir)
-        .output()
-        .expect("Failed to execute command");
-
-    assert!(
-        output.status.success(),
-        "Command failed with status: {:?}",
-        output.status
-    );
-
-    let stdout = str::from_utf8(&output.stdout).unwrap();
-    assert!(stdout.contains("Hoi Hoi!"));
+    let output = run_hoi(&["list"], &root, &home);
+    assert!(output.status.success());
+    let (stdout, _) = output_text(&output);
     assert!(stdout.contains("Integration test config"));
     assert!(stdout.contains("echo-test"));
-    assert!(stdout.contains("Prints a test success message"));
+    assert!(stdout.contains("global-echo"));
+
+    let output = run_hoi(&["ge"], &root, &home);
+    assert!(output.status.success());
+    assert!(output_text(&output).0.contains("Global command successful"));
 }
 
 #[test]
-fn test_hoi_execute_command() {
-    let temp_dir: PathBuf = testdir!();
+fn loads_environment_files() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    copy_fixture(".hoi.yml", &root, ".hoi.yml");
+    copy_fixture(".env", &root, ".env");
+    copy_fixture(".env.local", &root, ".env.local");
 
-    #[cfg(windows)]
-    let (env_var, env_val) = ("USERPROFILE", &temp_dir);
-    #[cfg(not(windows))]
-    let (env_var, env_val) = ("HOME", &temp_dir);
-
-    with_var(env_var, Some(env_val.to_str().unwrap()), || {
-        // Set up config inside isolated "home"
-        copy_fixture(".hoi.yml", &temp_dir, ".hoi.yml");
-
-        let home_dir = dirs_next::home_dir().unwrap();
-        let hoi_dir = home_dir.join(".hoi");
-        fs::create_dir_all(&hoi_dir).unwrap();
-
-        copy_fixture(".hoi.global.yml", &hoi_dir, ".hoi.global.yml");
-
-        // Build binary
-        Command::new("cargo")
-            .args(["build"])
-            .status()
-            .expect("Failed to build hoi binary");
-
-        let binary_path = get_binary_path();
-
-        // Run local command
-        let output = run_hoi_command(&binary_path, &["echo-test"], &temp_dir);
-        assert!(output.status.success());
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("Integration test successful"));
-
-        // Run alias for global command
-        let output = run_hoi_command(&binary_path, &["ge"], &temp_dir);
-
-        assert!(output.status.success());
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("Global command successful"));
-
-        // List commands (should include global)
-        let output = run_hoi_command(&binary_path, &[], &temp_dir);
-        assert!(output.status.success());
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("global-echo"));
-
-        // Run global command explicitly
-        let output = run_hoi_command(&binary_path, &["global-echo"], &temp_dir);
-        assert!(output.status.success());
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("Global command successful"));
-    });
+    let output = run_hoi(&["echo-env"], &root, &home);
+    assert!(output.status.success());
+    let stdout = output_text(&output).0;
+    assert!(stdout.contains("ENV_VAR=env_value"));
+    assert!(stdout.contains("LOCAL_VAR=local_value"));
+    assert!(stdout.contains("OVERRIDE_VAR=local_value"));
 }
 
 #[test]
-fn test_hoi_with_env_files() {
-    let temp_dir: PathBuf = testdir!();
-
-    #[cfg(windows)]
-    let (env_var, env_val) = ("USERPROFILE", &temp_dir);
+fn propagates_child_exit_code() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
     #[cfg(not(windows))]
-    let (env_var, env_val) = ("HOME", &temp_dir);
+    let command = "exit 7";
+    #[cfg(windows)]
+    let command = "exit /B 7";
+    fs::write(
+        root.join(".hoi.yml"),
+        format!("version: 1\ncommands:\n  fail:\n    cmd: {command}\n"),
+    )
+    .unwrap();
 
-    with_var(env_var, Some(env_val.to_str().unwrap()), || {
-        copy_fixture(".hoi.yml", &temp_dir, ".hoi.yml");
-        copy_fixture(".env", &temp_dir, ".env");
-
-        // Build the binary
-        Command::new("cargo")
-            .args(["build"])
-            .status()
-            .expect("Failed to build hoi binary");
-
-        let binary_path = get_binary_path();
-
-        let output = Command::new(&binary_path)
-            .arg("echo-env")
-            .current_dir(&temp_dir)
-            .env(env_var, env_val)
-            .output()
-            .expect("Failed to execute command with .env");
-
-        let stdout = str::from_utf8(&output.stdout).unwrap();
-        assert!(stdout.contains("ENV_VAR=env_value"));
-        assert!(!stdout.contains("LOCAL_VAR=local_value"));
-        assert!(stdout.contains("OVERRIDE_VAR=env_value"));
-
-        copy_fixture(".env.local", &temp_dir, ".env.local");
-
-        let output = Command::new(&binary_path)
-            .arg("echo-env")
-            .current_dir(&temp_dir)
-            .env(env_var, env_val)
-            .output()
-            .expect("Failed to execute command with .env.local");
-
-        let stdout = str::from_utf8(&output.stdout).unwrap();
-        assert!(stdout.contains("ENV_VAR=env_value"));
-        assert!(stdout.contains("LOCAL_VAR=local_value"));
-        assert!(stdout.contains("OVERRIDE_VAR=local_value"));
-    });
+    let output = run_hoi(&["fail"], &root, &home);
+    assert_eq!(output.status.code(), Some(7));
 }
 
-/// Helper to spawn the hoi binary with proper mocked HOME
-fn run_hoi_command(binary: &Path, args: &[&str], cwd: &Path) -> Output {
-    let mut cmd = Command::new(binary);
-    cmd.args(args).current_dir(cwd);
+#[cfg(not(windows))]
+#[test]
+fn forwards_each_command_argument_once() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "version: 1\ncommands:\n  args:\n    cmd: 'printf ''%s|%s'' \"$1\" \"$2\"'\n",
+    )
+    .unwrap();
 
+    let output = run_hoi(&["args", "alpha", "beta"], &root, &home);
+    assert!(output.status.success());
+    assert!(output_text(&output).0.ends_with("alpha|beta"));
+}
+
+#[test]
+fn reports_malformed_config_with_its_path() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(root.join(".hoi.yml"), "commands: [not valid").unwrap();
+
+    let output = run_hoi(&["list"], &root, &home);
+    assert!(!output.status.success());
+    let stderr = output_text(&output).1;
+    assert!(stderr.contains("Invalid YAML"));
+    assert!(stderr.contains(".hoi.yml"));
+}
+
+#[test]
+fn unknown_command_is_a_failure() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    copy_fixture(".hoi.yml", &root, ".hoi.yml");
+
+    let output = run_hoi(&["does-not-exist"], &root, &home);
+    assert!(!output.status.success());
+    assert!(output_text(&output).1.contains("Command not found"));
+}
+
+#[test]
+fn missing_config_is_successful_and_suggests_init() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+
+    let output = run_hoi(&[], &root, &home);
+    assert!(output.status.success());
+    let stdout = output_text(&output).0;
+    assert!(stdout.contains("No .hoi.yml file found"));
+    assert!(stdout.contains("hoi init"));
+
+    let command = run_hoi(&["missing"], &root, &home);
+    assert!(!command.status.success());
+    assert!(output_text(&command).1.contains("hoi init"));
+
+    let check = run_hoi(&["config", "--check"], &root, &home);
+    assert!(!check.status.success());
+}
+
+#[test]
+fn supports_help_version_and_config_inspection() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    copy_fixture(".hoi.yml", &root, ".hoi.yml");
+
+    let help = run_hoi(&["--help"], &root, &home);
+    assert!(help.status.success());
+    assert!(output_text(&help).0.contains("hoi config --check"));
+
+    let version = run_hoi(&["--version"], &root, &home);
+    assert!(version.status.success());
+    assert!(output_text(&version).0.contains(env!("CARGO_PKG_VERSION")));
+
+    let check = run_hoi(&["config", "--check"], &root, &home);
+    assert!(check.status.success());
+    let stdout = output_text(&check).0;
+    assert!(stdout.contains("Configuration is valid"));
+    assert!(stdout.contains(".hoi.yml"));
+}
+
+#[test]
+fn executes_from_discovered_project_root() {
+    let root: PathBuf = testdir!();
+    let child = root.join("src").join("nested");
+    let home = root.join("home");
+    fs::create_dir_all(&child).unwrap();
+    fs::create_dir_all(&home).unwrap();
     #[cfg(not(windows))]
-    cmd.env("HOME", cwd);
+    let command = "pwd";
     #[cfg(windows)]
-    cmd.env("USERPROFILE", cwd);
+    let command = "cd";
+    fs::write(
+        root.join(".hoi.yml"),
+        format!("version: 1\ncommands:\n  cwd:\n    cmd: {command}\n"),
+    )
+    .unwrap();
 
-    cmd.output().expect("Failed to execute hoi binary")
+    let output = run_hoi(&["cwd"], &child, &home);
+    assert!(output.status.success());
+    let canonical_root = root.canonicalize().unwrap();
+    assert!(output_text(&output)
+        .0
+        .to_lowercase()
+        .contains(&canonical_root.display().to_string().to_lowercase()));
+}
+
+#[test]
+fn init_respects_force() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+
+    assert!(run_hoi(&["init"], &root, &home).status.success());
+    let path = root.join(".hoi.yml");
+    fs::write(&path, "custom").unwrap();
+    assert!(run_hoi(&["init"], &root, &home).status.success());
+    assert_eq!(fs::read_to_string(&path).unwrap(), "custom");
+    assert!(run_hoi(&["init", "--force"], &root, &home).status.success());
+    assert!(fs::read_to_string(path).unwrap().contains("version: 1"));
+}
+
+#[test]
+fn init_can_create_global_config() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+
+    let output = run_hoi(&["init", "--global"], &root, &home);
+    assert!(output.status.success());
+    assert!(home.join(".hoi").join(".hoi.global.yml").is_file());
+}
+
+#[test]
+fn local_commands_override_global_commands() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(home.join(".hoi")).unwrap();
+    fs::write(
+        home.join(".hoi").join(".hoi.global.yml"),
+        "version: 1\ncommands:\n  shared:\n    cmd: echo global\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "version: 1\ncommands:\n  shared:\n    cmd: echo local\n",
+    )
+    .unwrap();
+
+    let output = run_hoi(&["shared"], &root, &home);
+    assert!(output.status.success());
+    let stdout = output_text(&output).0;
+    assert!(stdout.contains("local"));
+    assert!(!stdout.contains("global"));
 }
