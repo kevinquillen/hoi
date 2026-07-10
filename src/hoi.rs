@@ -12,6 +12,8 @@ pub enum HoiError {
     YamlParsing(#[from] serde_yaml::Error),
     #[error("Command not found: {0}")]
     CommandNotFound(String),
+    #[error("No .hoi.yml file found in current directory or parent directories, and no global config at ~/.hoi/.hoi.global.yml")]
+    ConfigNotFound,
     #[error("No commands defined in .hoi.yml file. You need at least one command defined.")]
     NoCommandsDefined,
 }
