@@ -25,6 +25,14 @@ fn output_text(output: &Output) -> (String, String) {
     )
 }
 
+fn comparable_path(path: &Path) -> String {
+    path.display()
+        .to_string()
+        .trim_start_matches(r"\\?\")
+        .replace('\\', "/")
+        .to_lowercase()
+}
+
 #[test]
 fn lists_and_executes_local_and_global_commands() {
     let root: PathBuf = testdir!();
@@ -185,11 +193,12 @@ fn executes_from_discovered_project_root() {
 
     let output = run_hoi(&["cwd"], &child, &home);
     assert!(output.status.success());
-    let canonical_root = root.canonicalize().unwrap();
+    let canonical_root = comparable_path(&root.canonicalize().unwrap());
     assert!(output_text(&output)
         .0
+        .replace('\\', "/")
         .to_lowercase()
-        .contains(&canonical_root.display().to_string().to_lowercase()));
+        .contains(&canonical_root));
 }
 
 #[test]

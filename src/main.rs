@@ -47,6 +47,20 @@ fn canonical_or_original(path: PathBuf) -> PathBuf {
     path.canonicalize().unwrap_or(path)
 }
 
+fn home_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        env::var_os("USERPROFILE")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
+            .or_else(dirs_next::home_dir)
+    }
+    #[cfg(not(windows))]
+    {
+        dirs_next::home_dir()
+    }
+}
+
 fn find_config_file_from(start: &Path) -> Option<PathBuf> {
     for dir in start.ancestors() {
         let path = dir.join(".hoi.yml");
@@ -240,7 +254,7 @@ fn execute_command(
 
 fn create_init_config(global: bool, force: bool) -> Result<(), HoiError> {
     let path = if global {
-        let home = dirs_next::home_dir().ok_or_else(|| HoiError::ConfigValidation {
+        let home = home_dir().ok_or_else(|| HoiError::ConfigValidation {
             path: PathBuf::from("~/.hoi/.hoi.global.yml"),
             message: "unable to determine the home directory".to_string(),
         })?;
@@ -306,7 +320,7 @@ fn run() -> Result<ExitCode, HoiError> {
     }
 
     let current_dir = env::current_dir()?;
-    let home = dirs_next::home_dir();
+    let home = home_dir();
     let paths = discover_config_paths(&current_dir, home.as_deref());
     if matches!(action, Action::ConfigPath) {
         print_config_paths(&paths);
