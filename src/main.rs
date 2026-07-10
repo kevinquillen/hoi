@@ -365,6 +365,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Find and load the global config file
     let global_config_path = find_global_config_file();
 
+    // We need at least one configuration file (either local or global)
+    if local_config_path.is_none() && global_config_path.is_none() {
+        println!("{}", HoiError::ConfigNotFound);
+        return Ok(());
+    }
+
     // Start with empty default configuration
     let mut merged_hoi = Hoi::default();
 
@@ -458,8 +464,9 @@ mod tests {
 
         #[cfg(not(windows))]
         {
-            let canonical_path = config_path.canonicalize().ok().unwrap();
-            assert_eq!(result.unwrap(), canonical_path);
+            let canonical_result = result.unwrap().canonicalize().unwrap();
+            let canonical_config = config_path.canonicalize().unwrap();
+            assert_eq!(canonical_result, canonical_config);
         }
 
         #[cfg(windows)]
