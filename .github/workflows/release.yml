@@ -44,7 +44,7 @@ jobs:
         with:
           changes-file: CHANGELOG.md
           executable-name: hoi
-          action-gh-release-parameters: '{ "make_latest": true, "token": "${{ secrets.RELEASE_TOKEN }}" }'
+          action-gh-release-parameters: '{ "make_latest": true }'
           target: ${{ matrix.platform.target }}
 
   publish:
