@@ -105,6 +105,55 @@ Execute a specific command:
 hoi [command|alias] (command options) (command arguments...)
 ```
 
+Hoi also provides conventional CLI commands and flags:
+
+```bash
+hoi --help
+hoi --version
+hoi list
+hoi config --path
+hoi config --check
+```
+
+`hoi config --path` prints the discovered local and global configuration files.
+`hoi config --check` loads, merges, and validates them without running a command.
+
+Commands run from the directory containing the discovered local `.hoi.yml`, even
+when Hoi is invoked from a child directory. Global-only commands run from the
+invocation directory. Additional command arguments are forwarded exactly once.
+
+If a command exits unsuccessfully, Hoi returns the same exit code. Invalid or
+unreadable configuration files are reported with their path and return a nonzero
+exit status. Running Hoi without any configuration remains successful and suggests
+using `hoi init`.
+
+### Configuration precedence and validation
+
+The global configuration is loaded first and the local configuration is applied
+second. Local settings and commands therefore override global values with the same
+name. Every discovered file must be valid; Hoi does not silently ignore a malformed
+global or local file.
+
+Hoi currently accepts configuration version `1`. It rejects empty commands or
+entrypoints, duplicate aliases, aliases that collide with command names, and the
+reserved command and alias names `init`, `list`, `config`, `help`, and `version`.
+
+### Initializing configuration
+
+Create or replace a local configuration:
+
+```bash
+hoi init
+hoi init --force
+```
+
+Create or replace the global configuration:
+
+```bash
+hoi init --global
+hoi init --global --force
+```
+
 Hoi can also call itself, allowing you to chain different commands together 
 in one command:
 
@@ -136,6 +185,9 @@ commands:
 - Each command can have an alias
 - Overridable entrypoint for command execution
 - Environment variable support from `.env` and `.env.local` files
+- Configuration discovery and validation commands
+- Predictable child-process exit codes
+- Cross-platform `--help` and `--version` support
 
 ### Building the Project
 
@@ -147,6 +199,13 @@ cargo build
 
 ```bash
 cargo test
+```
+
+Run the same formatting and lint checks used by CI:
+
+```bash
+cargo fmt -- --check
+cargo clippy --all-targets --all-features -- -D warnings
 ```
 
 ## License
