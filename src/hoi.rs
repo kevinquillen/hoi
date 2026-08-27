@@ -349,8 +349,10 @@ commands:
             },
         );
 
-        let mut local = Hoi::default();
-        local.description = "local desc".into();
+        let mut local = Hoi {
+            description: "local desc".into(),
+            ..Hoi::default()
+        };
         local.commands.insert(
             "hello".into(),
             UserCommand {
