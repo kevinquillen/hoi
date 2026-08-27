@@ -133,6 +133,22 @@ fn unknown_command_is_a_failure() {
 }
 
 #[test]
+fn unknown_command_suggests_similar_names() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    copy_fixture(".hoi.yml", &root, ".hoi.yml");
+
+    let output = run_hoi(&["echo-tst"], &root, &home);
+    assert!(!output.status.success());
+    let stderr = output_text(&output).1;
+    assert!(
+        stderr.contains("Did you mean") && stderr.contains("echo-test"),
+        "stderr was: {stderr}"
+    );
+}
+
+#[test]
 fn missing_config_is_successful_and_suggests_init() {
     let root: PathBuf = testdir!();
     let home = root.join("home");
@@ -161,7 +177,9 @@ fn supports_help_version_and_config_inspection() {
 
     let help = run_hoi(&["--help"], &root, &home);
     assert!(help.status.success());
-    assert!(output_text(&help).0.contains("hoi config --check"));
+    let help_text = output_text(&help).0;
+    assert!(help_text.contains("config"));
+    assert!(help_text.contains("--check"));
 
     let version = run_hoi(&["--version"], &root, &home);
     assert!(version.status.success());
@@ -172,6 +190,9 @@ fn supports_help_version_and_config_inspection() {
     let stdout = output_text(&check).0;
     assert!(stdout.contains("Configuration is valid"));
     assert!(stdout.contains(".hoi.yml"));
+
+    let validate = run_hoi(&["validate"], &root, &home);
+    assert!(validate.status.success());
 }
 
 #[test]

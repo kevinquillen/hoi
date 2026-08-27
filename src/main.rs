@@ -1,3 +1,4 @@
+mod cli;
 mod hoi;
 mod user_command;
 
@@ -7,35 +8,14 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
+use crate::cli::{Cli, CommandArg};
 use crate::hoi::{Hoi, HoiError};
+use clap::Parser;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use tabled::builder::Builder;
 use tabled::settings::object::Columns;
 use tabled::settings::{Alignment, Modify, Padding, Style};
-
-const HELP: &str = "Hoi - project and global command runner
-
-Usage:
-  hoi
-  hoi list
-  hoi <command|alias> [arguments...]
-  hoi init [--global] [--force]
-  hoi config --path
-  hoi config --check
-  hoi --help
-  hoi --version";
-
-#[derive(Debug)]
-enum Action {
-    List,
-    Run { command: String, args: Vec<String> },
-    Init { global: bool, force: bool },
-    ConfigPath,
-    ConfigCheck,
-    Help,
-    Version,
-}
 
 #[derive(Debug)]
 struct ConfigPaths {
@@ -53,11 +33,11 @@ fn home_dir() -> Option<PathBuf> {
         env::var_os("USERPROFILE")
             .filter(|value| !value.is_empty())
             .map(PathBuf::from)
-            .or_else(dirs_next::home_dir)
+            .or_else(dirs::home_dir)
     }
     #[cfg(not(windows))]
     {
-        dirs_next::home_dir()
+        dirs::home_dir()
     }
 }
 
@@ -86,11 +66,18 @@ fn discover_config_paths(start: &Path, home: Option<&Path>) -> ConfigPaths {
 fn load_environment_files(config_dir: &Path) {
     let env_file = config_dir.join(".env");
     if env_file.is_file() {
-        let _ = dotenvy::from_path(&env_file);
+        if let Err(error) = dotenvy::from_path(&env_file) {
+            eprintln!("Warning: failed to load {}: {error}", env_file.display());
+        }
     }
     let env_local_file = config_dir.join(".env.local");
     if env_local_file.is_file() {
-        let _ = dotenvy::from_path_override(&env_local_file);
+        if let Err(error) = dotenvy::from_path_override(&env_local_file) {
+            eprintln!(
+                "Warning: failed to load {}: {error}",
+                env_local_file.display()
+            );
+        }
     }
 }
 
@@ -99,7 +86,7 @@ fn load_config(path: &Path) -> Result<Hoi, HoiError> {
         path: path.to_path_buf(),
         source,
     })?;
-    let hoi: Hoi = serde_yaml::from_str(&contents).map_err(|source| HoiError::ConfigYaml {
+    let hoi: Hoi = serde_yaml_ng::from_str(&contents).map_err(|source| HoiError::ConfigYaml {
         path: path.to_path_buf(),
         source,
     })?;
@@ -124,45 +111,6 @@ fn load_merged_config(paths: &ConfigPaths) -> Result<Hoi, HoiError> {
     Ok(merged)
 }
 
-fn parse_action(args: Vec<String>) -> Result<Action, String> {
-    let Some(first) = args.first().map(String::as_str) else {
-        return Ok(Action::List);
-    };
-    match first {
-        "-h" | "--help" | "help" => Ok(Action::Help),
-        "-V" | "--version" | "version" => Ok(Action::Version),
-        "list" => {
-            if args.len() == 1 {
-                Ok(Action::List)
-            } else {
-                Err("`hoi list` does not accept arguments".to_string())
-            }
-        }
-        "init" => {
-            let mut global = false;
-            let mut force = false;
-            for arg in &args[1..] {
-                match arg.as_str() {
-                    "--global" => global = true,
-                    "--force" => force = true,
-                    _ => return Err(format!("unknown init option: {arg}")),
-                }
-            }
-            Ok(Action::Init { global, force })
-        }
-        "config" => match args.get(1).map(String::as_str) {
-            Some("--path") if args.len() == 2 => Ok(Action::ConfigPath),
-            Some("--check") if args.len() == 2 => Ok(Action::ConfigCheck),
-            _ => Err("usage: hoi config <--path|--check>".to_string()),
-        },
-        value if value.starts_with('-') => Err(format!("unknown option: {value}")),
-        _ => Ok(Action::Run {
-            command: args[0].clone(),
-            args: args[1..].to_vec(),
-        }),
-    }
-}
-
 fn get_random_did_you_know() -> &'static str {
     let facts = [
         "In Dutch, 'hoi' is an informal way to say 'hi'.",
@@ -177,15 +125,6 @@ fn get_random_did_you_know() -> &'static str {
         .choose(&mut thread_rng())
         .copied()
         .unwrap_or("Hoi is a command-line tool.")
-}
-
-fn find_command<'a>(hoi: &'a Hoi, name: &str) -> Option<&'a user_command::UserCommand> {
-    if let Some(command) = hoi.commands.get(name) {
-        return Some(command);
-    }
-    hoi.commands
-        .values()
-        .find(|command| command.alias.as_deref() == Some(name))
 }
 
 fn display_commands(hoi: &Hoi) {
@@ -219,8 +158,9 @@ fn execute_command(
     args: &[String],
     working_dir: &Path,
 ) -> Result<ExitCode, HoiError> {
-    let command = find_command(hoi, command_name)
-        .ok_or_else(|| HoiError::CommandNotFound(command_name.to_string()))?;
+    let command = hoi
+        .command_by_name_or_alias(command_name)
+        .ok_or_else(|| hoi.unknown_command(command_name))?;
     println!("Running command {command_name}...");
 
     let mut process_args = Vec::with_capacity(hoi.entrypoint.len() + args.len() + 1);
@@ -236,7 +176,13 @@ fn execute_command(
     if !placeholder_found {
         process_args.push(command.cmd.clone());
     }
-    let entrypoint = process_args.remove(0);
+    let entrypoint = process_args
+        .first()
+        .cloned()
+        .ok_or_else(|| HoiError::Cli("command entrypoint is empty".to_string()))?;
+    if !process_args.is_empty() {
+        process_args.remove(0);
+    }
     process_args.extend_from_slice(args);
 
     let status = Command::new(entrypoint)
@@ -301,20 +247,25 @@ fn print_config_paths(paths: &ConfigPaths) {
     );
 }
 
+fn require_config_flags(path: bool, check: bool) -> Result<(), HoiError> {
+    match (path, check) {
+        (true, false) | (false, true) => Ok(()),
+        _ => Err(HoiError::Cli(
+            "usage: hoi config <--path|--check>".to_string(),
+        )),
+    }
+}
+
 fn run() -> Result<ExitCode, HoiError> {
-    let action = parse_action(env::args().skip(1).collect()).map_err(HoiError::Cli)?;
-    match action {
-        Action::Help => {
-            println!("{HELP}");
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Some(CommandArg::Init { global, force }) => {
+            create_init_config(*global, *force)?;
             return Ok(ExitCode::SUCCESS);
         }
-        Action::Version => {
-            println!("hoi {}", env!("CARGO_PKG_VERSION"));
-            return Ok(ExitCode::SUCCESS);
-        }
-        Action::Init { global, force } => {
-            create_init_config(global, force)?;
-            return Ok(ExitCode::SUCCESS);
+        Some(CommandArg::Config { path, check }) => {
+            require_config_flags(*path, *check)?;
         }
         _ => {}
     }
@@ -322,17 +273,25 @@ fn run() -> Result<ExitCode, HoiError> {
     let current_dir = env::current_dir()?;
     let home = home_dir();
     let paths = discover_config_paths(&current_dir, home.as_deref());
-    if matches!(action, Action::ConfigPath) {
+
+    if matches!(
+        cli.command,
+        Some(CommandArg::Config {
+            path: true,
+            check: false
+        })
+    ) {
         print_config_paths(&paths);
         return Ok(ExitCode::SUCCESS);
     }
+
+    let listing = matches!(cli.command, None | Some(CommandArg::List));
     if paths.local.is_none() && paths.global.is_none() {
-        return match action {
-            Action::List => {
-                println!("{}", HoiError::ConfigNotFound);
-                Ok(ExitCode::SUCCESS)
-            }
-            _ => Err(HoiError::ConfigNotFound),
+        return if listing {
+            println!("{}", HoiError::ConfigNotFound);
+            Ok(ExitCode::SUCCESS)
+        } else {
+            Err(HoiError::ConfigNotFound)
         };
     }
 
@@ -340,25 +299,29 @@ fn run() -> Result<ExitCode, HoiError> {
     if let Some(dir) = paths.local.as_deref().and_then(Path::parent) {
         load_environment_files(dir);
     }
-    match action {
-        Action::ConfigCheck => {
+
+    match cli.command {
+        Some(CommandArg::Config { check: true, .. }) | Some(CommandArg::Validate) => {
             print_config_paths(&paths);
             println!("Configuration is valid ({} commands).", hoi.commands.len());
             Ok(ExitCode::SUCCESS)
         }
-        Action::List => {
+        None | Some(CommandArg::List) => {
             display_commands(&hoi);
             Ok(ExitCode::SUCCESS)
         }
-        Action::Run { command, args } => {
+        Some(CommandArg::External(argv)) => {
+            let (command, args) = argv
+                .split_first()
+                .ok_or_else(|| hoi.unknown_command("<missing>"))?;
             let working_dir = paths
                 .local
                 .as_deref()
                 .and_then(Path::parent)
                 .unwrap_or(&current_dir);
-            execute_command(&hoi, &command, &args, working_dir)
+            execute_command(&hoi, command, args, working_dir)
         }
-        Action::Help | Action::Version | Action::Init { .. } | Action::ConfigPath => unreachable!(),
+        Some(CommandArg::Init { .. }) | Some(CommandArg::Config { .. }) => unreachable!(),
     }
 }
 
@@ -393,14 +356,6 @@ mod tests {
     }
 
     #[test]
-    fn parses_backward_compatible_command() {
-        let action = parse_action(vec!["build".into(), "--release".into()]).unwrap();
-        assert!(
-            matches!(action, Action::Run { command, args } if command == "build" && args == ["--release"])
-        );
-    }
-
-    #[test]
     fn rejects_duplicate_aliases() {
         let root: PathBuf = testdir!();
         let path = root.join(".hoi.yml");
@@ -409,5 +364,13 @@ mod tests {
             load_config(&path),
             Err(HoiError::ConfigValidation { .. })
         ));
+    }
+
+    #[test]
+    fn test_custom_entrypoint() {
+        let temp_dir: PathBuf = testdir!();
+        copy_fixture(".hoi.with_entrypoint.yml", &temp_dir, ".hoi.yml");
+        let hoi = load_config(&temp_dir.join(".hoi.yml")).unwrap();
+        assert_eq!(hoi.entrypoint, vec!["sh", "-c", "$@"]);
     }
 }

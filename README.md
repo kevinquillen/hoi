@@ -125,7 +125,14 @@ invocation directory. Additional command arguments are forwarded exactly once.
 If a command exits unsuccessfully, Hoi returns the same exit code. Invalid or
 unreadable configuration files are reported with their path and return a nonzero
 exit status. Running Hoi without any configuration remains successful and suggests
-using `hoi init`.
+using `hoi init`. Unknown command names print a "Did you mean?" hint when a
+similar command or alias exists.
+
+Extra arguments after the command name are forwarded to the shell as `$1`, `$2`,
+and `"$@"`. Use `"$@"` in the YAML `cmd` when those arguments should be passed
+through.
+
+`hoi validate` is the same as `hoi config --check`.
 
 ### Configuration precedence and validation
 
@@ -136,7 +143,8 @@ global or local file.
 
 Hoi currently accepts configuration version `1`. It rejects empty commands or
 entrypoints, duplicate aliases, aliases that collide with command names, and the
-reserved command and alias names `init`, `list`, `config`, `help`, and `version`.
+reserved command and alias names `init`, `list`, `config`, `help`, `version`,
+and `validate`.
 
 ### Initializing configuration
 
