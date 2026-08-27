@@ -6,8 +6,25 @@ on:
       - "v*"
 
 jobs:
+  check-version:
+    name: Tag matches Cargo.toml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if git tag does not match package version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          cargo_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          if [ "$tag" != "$cargo_version" ]; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' does not match Cargo.toml version '${cargo_version}'. Bump version in Cargo.toml and CHANGELOG.md before tagging."
+            exit 1
+          fi
+          echo "Tag v${tag} matches Cargo.toml ${cargo_version}"
+
   release:
     name: Release - ${{ matrix.platform.os-name }}
+    needs: check-version
     permissions:
       contents: write
     strategy:
