@@ -7,3 +7,9 @@ commands:
   echo-env:
     cmd: echo "ENV_VAR=$ENV_VAR LOCAL_VAR=$LOCAL_VAR OVERRIDE_VAR=$OVERRIDE_VAR"
     description: "Prints environment variables"
+  echo-args:
+    cmd: echo "$@"
+    description: "Prints forwarded command arguments"
+  fail-code:
+    cmd: exit 42
+    description: "Exits with status 42"
