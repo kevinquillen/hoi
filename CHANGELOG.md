@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.1
+
+### Added
+
+- Switched the CLI to clap (`hoi validate` as an alias of `config --check`).
+- Unknown commands print a "Did you mean?" hint when a similar name or alias exists.
+
+### Changed
+
+- YAML parsing now uses `serde_yaml_ng`; home-directory lookup uses `dirs`.
+- The release workflow fails before building or publishing if the git tag does
+  not match the version in `Cargo.toml`.
+
 ## 0.7.0
 
 ### Added
