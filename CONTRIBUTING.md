@@ -85,6 +85,10 @@ publishes to crates.io.
 5. The release workflow verifies the tag matches `Cargo.toml`, builds release
    artifacts for Linux, macOS, and Windows, creates a GitHub release, and
    publishes to crates.io.
+6. Update the Homebrew formula in
+   [homebrew-tap](https://github.com/kevinquillen/homebrew-tap) using
+   `packaging/homebrew/hoi.rb` as a starting point. Bump `version` and the
+   per-platform `sha256` values from the new GitHub release checksum files.
 
 If the tag and `Cargo.toml` version do not match, the release workflow fails
 before building or publishing.

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Added `scripts/install.sh` for macOS and Linux installs from GitHub release
+  artifacts.
+- Documented Homebrew, install script, and prebuilt binary installation in the
+  README.
+- Added `packaging/homebrew/hoi.rb` for the
+  [homebrew-tap](https://github.com/kevinquillen/homebrew-tap) formula.
+
 ## 0.7.1
 
 ### Added

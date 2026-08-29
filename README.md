@@ -26,13 +26,58 @@ hoi sync-db
 Commands live in version control alongside your project, stay documented in one
 place, and execute the same way on every machine.
 
-## Quick start
+## Installation
 
-Install Hoi:
+### Homebrew (macOS and Linux)
+
+```bash
+brew install kevinquillen/tap/hoi
+```
+
+### Install script (macOS and Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh
+```
+
+Install a specific version or directory:
+
+```bash
+HOI_VERSION=0.7.1 curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh -s -- --dir ~/.local/bin
+```
+
+### Prebuilt binaries
+
+Download the archive for your platform from
+[GitHub Releases](https://github.com/kevinquillen/hoi/releases), verify the
+checksum, and move the `hoi` binary onto your `PATH`:
+
+```bash
+curl -LO https://github.com/kevinquillen/hoi/releases/download/v0.7.1/hoi-macOS-arm64.tar.gz
+curl -LO https://github.com/kevinquillen/hoi/releases/download/v0.7.1/hoi-macOS-arm64.tar.gz.sha256
+shasum -a 256 -c hoi-macOS-arm64.tar.gz.sha256
+tar xzf hoi-macOS-arm64.tar.gz hoi
+install -m 0755 hoi ~/.local/bin/hoi
+```
+
+Available artifacts:
+
+| Platform | Archive |
+|---|---|
+| Linux x86_64 | `hoi-Linux-musl-x86_64.tar.gz` |
+| Linux arm64 | `hoi-Linux-musl-arm64.tar.gz` |
+| macOS Intel | `hoi-macOS-x86_64.tar.gz` |
+| macOS Apple Silicon | `hoi-macOS-arm64.tar.gz` |
+| Windows x86_64 | `hoi-Windows-msvc-x86_64.zip` |
+
+### Cargo
 
 ```bash
 cargo install hoi
 ```
+
+## Quick start
 
 Create a configuration file in your project:
 
