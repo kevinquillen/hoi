@@ -3,13 +3,15 @@ name = "hoi"
 version = "0.7.1"
 edition = "2021"
 authors = ["Kevin Quillen <kevinquillen@gmail.com>"]
-description = "hoi is a command-line tool to help create simple command-line powered utilities."
-categories = ["command-line-utilities", "development-tools"]
+description = "Cross-platform command runner for development teams. Define project tasks in .hoi.yml and run them with a single command."
+readme = "README.md"
 license = "MIT"
-keywords = ["commandfile", "command-line", "runner", "task", "utility"]
-documentation = "https://github.com/kevinquillen/hoi"
+keywords = ["command-runner", "task-runner", "yaml", "cli", "development-tools"]
+categories = ["command-line-utilities", "development-tools"]
+documentation = "https://github.com/kevinquillen/hoi#usage"
 homepage = "https://github.com/kevinquillen/hoi"
 repository = "https://github.com/kevinquillen/hoi"
+exclude = [".github/"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
