@@ -83,12 +83,13 @@ publishes to crates.io.
 4. Create and push an annotated tag that matches the crate version, prefixed
    with `v` (for example, `v0.7.2` for version `0.7.2` in `Cargo.toml`).
 5. The release workflow verifies the tag matches `Cargo.toml`, builds release
-   artifacts for Linux, macOS, and Windows, creates a GitHub release, and
-   publishes to crates.io.
-6. Update the Homebrew formula in
-   [homebrew-tap](https://github.com/kevinquillen/homebrew-tap) using
-   `packaging/homebrew/hoi.rb` as a starting point. Bump `version` and the
-   per-platform `sha256` values from the new GitHub release checksum files.
+   artifacts for Linux, macOS, and Windows, creates a GitHub release, publishes
+   to crates.io, and updates the Homebrew formula in
+   [homebrew-tap](https://github.com/kevinquillen/homebrew-tap).
+
+The repository needs a `HOMEBREW_TAP_TOKEN` secret with write access to
+`kevinquillen/homebrew-tap`. The same secret used for Auryn releases works
+here. The formula template lives at `packaging/homebrew/hoi.rb`.
 
 If the tag and `Cargo.toml` version do not match, the release workflow fails
 before building or publishing.

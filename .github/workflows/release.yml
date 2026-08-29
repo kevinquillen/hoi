@@ -64,6 +64,53 @@ jobs:
           action-gh-release-parameters: '{ "make_latest": true }'
           target: ${{ matrix.platform.target }}
 
+  publish-homebrew:
+    name: Publish Homebrew formula
+    needs: release
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, '-') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render formula and push to tap
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          version="${tag#v}"
+
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+            --pattern '*.tar.gz.sha256' --dir checksums
+          sha() { awk '{print $1}' "checksums/hoi-$1.tar.gz.sha256"; }
+          mac_arm="$(sha macOS-arm64)"
+          mac_x86="$(sha macOS-x86_64)"
+          linux_arm="$(sha Linux-musl-arm64)"
+          linux_x86="$(sha Linux-musl-x86_64)"
+
+          sed \
+            -e "s/version \"[^\"]*\"/version \"${version}\"/" \
+            -e "s/REPLACE_WITH_MACOS_ARM64_SHA256/${mac_arm}/" \
+            -e "s/REPLACE_WITH_MACOS_X86_64_SHA256/${mac_x86}/" \
+            -e "s/REPLACE_WITH_LINUX_ARM64_SHA256/${linux_arm}/" \
+            -e "s/REPLACE_WITH_LINUX_X86_64_SHA256/${linux_x86}/" \
+            packaging/homebrew/hoi.rb > formula.rb
+
+          git clone -q "https://x-access-token:${TAP_TOKEN}@github.com/kevinquillen/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp formula.rb tap/Formula/hoi.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/hoi.rb
+          if git diff --cached --quiet; then
+            echo "Formula already up to date."
+          else
+            git commit -q -m "hoi ${version}"
+            git push -q origin HEAD
+          fi
+
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
