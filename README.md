@@ -194,6 +194,9 @@ commands:
 
 ## Development
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidelines, testing
+expectations, and the release process.
+
 ### Building
 
 ```bash
