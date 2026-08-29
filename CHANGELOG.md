@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Release workflow now updates the Homebrew formula in
+  [homebrew-tap](https://github.com/kevinquillen/homebrew-tap) from
+  `packaging/homebrew/hoi.rb`.
+
 ## 0.7.1
 
 ### Added
