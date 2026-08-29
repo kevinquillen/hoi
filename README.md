@@ -1,46 +1,50 @@
-# Hoi!
+# Hoi
 
 [![Crates.io Version](https://img.shields.io/crates/v/hoi)](https://crates.io/crates/hoi)
 [![CI](https://github.com/kevinquillen/hoi/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinquillen/hoi/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Hoi is a command-line tool that helps create simple command-line powered
-utilities. It reads `.hoi.yml` configuration files that define custom commands,
-which can be executed through the `hoi` command.
+Hoi is a cross-platform command runner for development teams. Define project
+tasks in a `.hoi.yml` file and run them with a single, memorable command — no
+Makefile expertise or one-off shell scripts to memorize.
 
-> In Hawaiian, 'hoi hoi' means to entertain, amuse, charm, delight, encourage, or please.
+Inspired by [Ahoy!](https://github.com/ahoy-cli/ahoy) and [Just](https://github.com/casey/just),
+Hoi focuses on YAML-defined commands, merged global and local configuration,
+and predictable behavior for everyday workflows.
 
-Right now this is a for-fun project for me that was inspired by other 
-projects like [Ahoy!](https://github.com/ahoy-cli/ahoy) or [Just](https://github.com/casey/just).
+## Why Hoi
 
-I started this project in 2022 and shelved it. I decided it was time to put 
-it on GitHub and share it, which also encourages me to keep working at it 
-when I have time.
+Complex commands and multi-step workflows are hard to discover, easy to get
+wrong, and difficult to keep consistent across a team. Hoi gives everyone the
+same entry point: instead of copying Docker invocations or database sync scripts
+from a wiki, anyone can run:
 
-This tool is functional, but probably has a lot of edge cases and bugs, so use
-at your own discretion - PRs always welcome!
+```bash
+hoi sync-db
+```
 
-### Why use Hoi
+Commands live in version control alongside your project, stay documented in one
+place, and execute the same way on every machine.
 
-Frankly, to make running commands easier for you and your team. When someone 
-creates a new command, script, or workflow, sometimes they can be very long 
-and difficult to remember - and harder to execute consistently even with the 
-best of documentation. In short, tools like this should help the least 
-technical members of your team take advantage of the same powerful tools as 
-the top technical members.
+## Quick start
 
-Meaning, if they had to perform tasks like syncing a database locally, 
-executing several scripts in Docker, or doing a sequence of events - instead 
-of struggle through a lot of technical details they can simply type:
-
-`hoi (command)`
-
-that does all that work for them without necessarily needing to know all the 
-intricate details otherwise.
-
-## Installation
+Install Hoi:
 
 ```bash
 cargo install hoi
+```
+
+Create a configuration file in your project:
+
+```bash
+hoi init
+```
+
+List available commands and run one:
+
+```bash
+hoi
+hoi hello
 ```
 
 ## Usage
@@ -53,11 +57,10 @@ You can create a new `.hoi.yml` file using the built-in init command:
 hoi init
 ```
 
-This will create a template `.hoi.yml` file in your current directory with some
-example commands to get you started.
+This creates a template `.hoi.yml` file in your current directory with example
+commands to get you started.
 
-Alternatively, you can manually create a `.hoi.yml` file in your project
-directory with the following structure:
+Alternatively, create a `.hoi.yml` file manually:
 
 ```yaml
 version: 1
@@ -71,27 +74,22 @@ commands:
       echo "This is a multi-line command"
       echo "Each line will be executed in sequence"
     alias: multi
-    description: "Demonstrating how to create a command with multiple lines 
-    and also has an alias."
+    description: "Demonstrating how to create a command with multiple lines and an alias."
 ```
 
-You can also put a Hoi file at `~/.hoi/.hoi.global.yml` to provide globally 
-available commands. These will be available everywhere. If a `.hoi.yml` file 
-exists in your project directory, both files will be merged.
+Put a Hoi file at `~/.hoi/.hoi.global.yml` for commands available everywhere.
+When a local `.hoi.yml` exists, both files are merged.
 
-### Environment Variables
+### Environment variables
 
-Hoi automatically loads environment variables from `.env` and `.env.local` files
-located in the same directory as your `.hoi.yml` file. This allows you to
-configure your commands with environment-specific values without modifying the
+Hoi loads environment variables from `.env` and `.env.local` files in the same
+directory as your `.hoi.yml`. Use them to configure commands without changing
 command definitions.
 
-If both files exist, `.env` is loaded first, and then `.env.local` is loaded,
-with variables in `.env.local` taking precedence over those defined in `.env`.
-This follows the common pattern of having `.env` for shared configuration and
-`.env.local` for local overrides.
+If both files exist, `.env` is loaded first and `.env.local` second, with
+local values overriding shared ones.
 
-### Running Commands
+### Running commands
 
 List all available commands:
 
@@ -137,14 +135,14 @@ through.
 ### Configuration precedence and validation
 
 The global configuration is loaded first and the local configuration is applied
-second. Local settings and commands therefore override global values with the same
-name. Every discovered file must be valid; Hoi does not silently ignore a malformed
+second. Local settings and commands override global values with the same name.
+Every discovered file must be valid; Hoi does not silently ignore a malformed
 global or local file.
 
-Hoi currently accepts configuration version `1`. It rejects empty commands or
-entrypoints, duplicate aliases, aliases that collide with command names, and the
-reserved command and alias names `init`, `list`, `config`, `help`, `version`,
-and `validate`.
+Hoi accepts configuration version `1`. It rejects empty commands or entrypoints,
+duplicate aliases, aliases that collide with command names, and the reserved
+command and alias names `init`, `list`, `config`, `help`, `version`, and
+`validate`.
 
 ### Initializing configuration
 
@@ -162,8 +160,7 @@ hoi init --global
 hoi init --global --force
 ```
 
-Hoi can also call itself, allowing you to chain different commands together 
-in one command:
+Hoi can call itself, so you can chain commands in a single entry point:
 
 ```yaml
 version: 1
@@ -185,25 +182,25 @@ commands:
 
 ## Features
 
-- Recursive lookup of `.hoi.yml` files (searches in current directory and parent
-  directories)
-- Support for single-line and multi-line commands
-- Global command file support via `$HOME/.hoi/.hoi.global.yml` that merges with
-  local project files
-- Each command can have an alias
+- Recursive lookup of `.hoi.yml` files (current directory and parent directories)
+- Single-line and multi-line commands
+- Global command file at `$HOME/.hoi/.hoi.global.yml`, merged with local project files
+- Per-command aliases
 - Overridable entrypoint for command execution
-- Environment variable support from `.env` and `.env.local` files
+- Environment variables from `.env` and `.env.local`
 - Configuration discovery and validation commands
 - Predictable child-process exit codes
 - Cross-platform `--help` and `--version` support
 
-### Building the Project
+## Development
+
+### Building
 
 ```bash
 cargo build
 ```
 
-### Running Tests
+### Tests
 
 ```bash
 cargo test
@@ -216,7 +213,11 @@ cargo fmt -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
+## About the name
+
+In Hawaiian, *hoi hoi* means to entertain, amuse, charm, delight, encourage,
+or please.
+
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for
-details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
