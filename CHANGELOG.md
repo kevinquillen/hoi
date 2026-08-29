@@ -4,6 +4,10 @@
 
 ### Added
 
+- Added `scripts/install.sh` for macOS and Linux installs from GitHub release
+  artifacts.
+- Documented Homebrew, install script, and prebuilt binary installation in the
+  README.
 - Release workflow now updates the Homebrew formula in
   [homebrew-tap](https://github.com/kevinquillen/homebrew-tap) from
   `packaging/homebrew/hoi.rb`.
