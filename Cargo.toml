@@ -1,6 +1,6 @@
 [package]
 name = "hoi"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 authors = ["Kevin Quillen <kevinquillen@gmail.com>"]
 description = "Cross-platform command runner for development teams. Define project tasks in .hoi.yml and run them with a single command."
