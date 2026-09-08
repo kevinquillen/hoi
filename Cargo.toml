@@ -1,6 +1,6 @@
 [package]
 name = "hoi"
-version = "0.7.2"
+version = "0.8.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kevin Quillen <kevinquillen@gmail.com>"]
