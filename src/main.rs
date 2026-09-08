@@ -155,6 +155,28 @@ fn display_commands(hoi: &Hoi) {
     println!("\n{table}\n");
 }
 
+#[cfg(any(windows, test))]
+fn validate_windows_shell_args(entrypoint: &str, args: &[String]) -> Result<(), HoiError> {
+    let executable = entrypoint
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(entrypoint)
+        .to_ascii_lowercase();
+    let is_shell = executable == "cmd"
+        || executable == "cmd.exe"
+        || executable.ends_with(".bat")
+        || executable.ends_with(".cmd");
+    if is_shell
+        && args.iter().any(|arg| {
+            arg.chars()
+                .any(|c| c.is_control() || "\"%!^&|<>".contains(c))
+        })
+    {
+        return Err(HoiError::Cli("arguments containing control characters or CMD metacharacters are not supported by Windows shell entrypoints; use a direct executable entrypoint".to_string()));
+    }
+    Ok(())
+}
+
 fn execute_command(
     hoi: &Hoi,
     command_name: &str,
@@ -186,6 +208,8 @@ fn execute_command(
     if !process_args.is_empty() {
         process_args.remove(0);
     }
+    #[cfg(windows)]
+    validate_windows_shell_args(&entrypoint, args)?;
     process_args.extend_from_slice(args);
 
     let status = Command::new(entrypoint)
@@ -343,6 +367,46 @@ mod tests {
     use super::*;
     use testdir::testdir;
     use utilities::copy_fixture;
+
+    #[test]
+    fn windows_shell_rejects_metacharacters_without_disclosing_arguments() {
+        for shell in [
+            "cmd",
+            "CMD.EXE",
+            r"C:\Windows\System32\cmd.exe",
+            "script.bat",
+            "script.CMD",
+        ] {
+            for payload in [
+                "&echo injected",
+                "x|echo injected",
+                ">file",
+                "<file",
+                "%PATH%",
+                "!VAR!",
+                "^x",
+                "\"x",
+                "x\nx",
+                "x\rx",
+                "x\tx",
+                "x\0x",
+            ] {
+                let error = validate_windows_shell_args(shell, &[payload.into()]).unwrap_err();
+                assert!(!error.to_string().contains(payload));
+            }
+            assert!(validate_windows_shell_args(
+                shell,
+                &[
+                    "ordinary".into(),
+                    "two words".into(),
+                    "".into(),
+                    r"C:\some path\".into()
+                ]
+            )
+            .is_ok());
+        }
+        assert!(validate_windows_shell_args("program.exe", &["&literal".into()]).is_ok());
+    }
 
     #[test]
     fn finds_config_from_child_directory_without_changing_cwd() {

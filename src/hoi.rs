@@ -248,7 +248,12 @@ fn edit_distance(a: &str, b: &str) -> usize {
 fn default_entrypoint() -> Vec<String> {
     #[cfg(windows)]
     {
-        vec!["cmd".to_string(), "/C".to_string()]
+        vec![
+            "cmd".to_string(),
+            "/D".to_string(),
+            "/V:OFF".to_string(),
+            "/C".to_string(),
+        ]
     }
 
     #[cfg(not(windows))]

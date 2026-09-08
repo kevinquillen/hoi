@@ -175,6 +175,12 @@ Extra arguments after the command name are forwarded to the shell as `$1`, `$2`,
 and `"$@"`. Use `"$@"` in the YAML `cmd` when those arguments should be passed
 through.
 
+On Windows, the default entrypoint is CMD with AutoRun and delayed expansion
+disabled. Forwarded arguments containing control characters or CMD metacharacters
+(`"`, `%`, `!`, `^`, `&`, `|`, `<`, `>`) are rejected before execution. Use a
+direct executable entrypoint when these characters must be passed literally.
+Custom shell entrypoints and command definitions must be trusted.
+
 `hoi validate` is the same as `hoi config --check`.
 
 ### Configuration precedence and validation

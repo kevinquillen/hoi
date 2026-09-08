@@ -107,6 +107,38 @@ fn malformed_environment_files_do_not_disclose_values() {
     }
 }
 
+#[cfg(windows)]
+#[test]
+fn windows_shell_arguments_cannot_inject_commands() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "commands:\n  echo-args:\n    cmd: echo arguments\n",
+    )
+    .unwrap();
+    for payload in [
+        "&echo injected>injected.txt",
+        "|echo injected>injected.txt",
+        "\"&echo injected>injected.txt",
+        "%COMSPEC%",
+        "!COMSPEC!",
+        "^&echo injected",
+        "\necho injected",
+    ] {
+        let output = run_hoi(&["echo-args", payload], &root, &home);
+        assert!(!output.status.success());
+        let (stdout, stderr) = output_text(&output);
+        assert!(stderr.contains("CMD metacharacters"), "{stderr}");
+        assert!(!stdout.contains("arguments"));
+        assert!(!root.join("injected.txt").exists());
+    }
+    let output = run_hoi(&["echo-args", "ordinary", "two words"], &root, &home);
+    assert!(output.status.success(), "{}", output_text(&output).1);
+    assert!(output_text(&output).0.contains("two words"));
+}
+
 #[test]
 fn propagates_child_exit_code() {
     let root: PathBuf = testdir!();
