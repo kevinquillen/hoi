@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.0
+
 ### Added
 
 - Added `scripts/install.sh` for macOS and Linux installs from GitHub release
@@ -11,6 +13,27 @@
 - Release workflow now updates the Homebrew formula in
   [homebrew-tap](https://github.com/kevinquillen/homebrew-tap) from
   `packaging/homebrew/hoi.rb`.
+- Release publishing now requires formatting, lint, and test checks to pass.
+
+### Changed
+
+- Adopted the Rust 2024 edition and declared Rust 1.85 as the minimum supported
+  compiler version.
+- Local configuration inherits global descriptions and entrypoints when those
+  settings are omitted locally.
+- Configuration initialization now creates files atomically.
+
+### Fixed
+
+- Prevented malformed environment files from exposing their contents in error
+  output.
+- Rejected unsafe forwarded arguments for Windows command shell entrypoints.
+- Preserved the first forwarded argument when using a custom Unix shell
+  entrypoint.
+- Rejected entrypoints whose executable is empty.
+- Prevented `hoi init` from following dangling symlinks without `--force`.
+- Corrected install-script examples to invoke Bash and pass version arguments to
+  the installer.
 
 ## 0.7.1
 

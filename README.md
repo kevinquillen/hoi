@@ -43,7 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/insta
 Install a specific version or directory:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash -s -- --version 0.7.1
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash -s -- --version 0.8.0
 curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash -s -- --dir ~/.local/bin
 ```
 
@@ -54,8 +54,8 @@ Download the archive for your platform from
 checksum, and move the `hoi` binary onto your `PATH`:
 
 ```bash
-curl -LO https://github.com/kevinquillen/hoi/releases/download/v0.7.1/hoi-macOS-arm64.tar.gz
-curl -LO https://github.com/kevinquillen/hoi/releases/download/v0.7.1/hoi-macOS-arm64.tar.gz.sha256
+curl -LO https://github.com/kevinquillen/hoi/releases/download/v0.8.0/hoi-macOS-arm64.tar.gz
+curl -LO https://github.com/kevinquillen/hoi/releases/download/v0.8.0/hoi-macOS-arm64.tar.gz.sha256
 shasum -a 256 -c hoi-macOS-arm64.tar.gz.sha256
 tar xzf hoi-macOS-arm64.tar.gz hoi
 install -m 0755 hoi ~/.local/bin/hoi
