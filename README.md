@@ -37,14 +37,14 @@ brew install kevinquillen/tap/hoi
 ### Install script (macOS and Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash
 ```
 
 Install a specific version or directory:
 
 ```bash
-HOI_VERSION=0.7.1 curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh
-curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh -s -- --dir ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash -s -- --version 0.7.1
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash -s -- --dir ~/.local/bin
 ```
 
 ### Prebuilt binaries
@@ -175,6 +175,12 @@ Extra arguments after the command name are forwarded to the shell as `$1`, `$2`,
 and `"$@"`. Use `"$@"` in the YAML `cmd` when those arguments should be passed
 through.
 
+On Windows, the default entrypoint is CMD with AutoRun and delayed expansion
+disabled. Forwarded arguments containing control characters or CMD metacharacters
+(`"`, `%`, `!`, `^`, `&`, `|`, `<`, `>`) are rejected before execution. Use a
+direct executable entrypoint when these characters must be passed literally.
+Custom shell entrypoints and command definitions must be trusted.
+
 `hoi validate` is the same as `hoi config --check`.
 
 ### Configuration precedence and validation
@@ -243,6 +249,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidelines, testing
 expectations, and the release process.
 
 ### Building
+
+Building from source requires Rust 1.85 or newer.
 
 ```bash
 cargo build

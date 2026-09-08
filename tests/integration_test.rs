@@ -71,6 +71,75 @@ fn loads_environment_files() {
 }
 
 #[test]
+fn malformed_environment_files_do_not_disclose_values() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "commands:\n  hello:\n    cmd: echo hello\n",
+    )
+    .unwrap();
+
+    for filename in [".env", ".env.local"] {
+        fs::write(
+            root.join(filename),
+            "HOI_TEST_TOKEN=\"secret-that-must-not-be-logged\n",
+        )
+        .unwrap();
+        for args in [
+            &["list"][..],
+            &["validate"],
+            &["config", "--check"],
+            &["hello"],
+        ] {
+            let output = run_hoi(args, &root, &home);
+            let (stdout, stderr) = output_text(&output);
+            assert!(output.status.success(), "{stderr}");
+            assert!(stderr.contains("Warning: failed to load environment file"));
+            assert!(stderr.contains(filename));
+            for text in [stdout, stderr] {
+                assert!(!text.contains("secret-that-must-not-be-logged"));
+                assert!(!text.contains("HOI_TEST_TOKEN"));
+            }
+        }
+        fs::remove_file(root.join(filename)).unwrap();
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_shell_arguments_cannot_inject_commands() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "commands:\n  echo-args:\n    cmd: echo arguments\n",
+    )
+    .unwrap();
+    for payload in [
+        "&echo injected>injected.txt",
+        "|echo injected>injected.txt",
+        "\"&echo injected>injected.txt",
+        "%COMSPEC%",
+        "!COMSPEC!",
+        "^&echo injected",
+        "\necho injected",
+    ] {
+        let output = run_hoi(&["echo-args", payload], &root, &home);
+        assert!(!output.status.success());
+        let (stdout, stderr) = output_text(&output);
+        assert!(stderr.contains("CMD metacharacters"), "{stderr}");
+        assert!(!stdout.contains("arguments"));
+        assert!(!root.join("injected.txt").exists());
+    }
+    let output = run_hoi(&["echo-args", "ordinary", "two words"], &root, &home);
+    assert!(output.status.success(), "{}", output_text(&output).1);
+    assert!(output_text(&output).0.contains("two words"));
+}
+
+#[test]
 fn propagates_child_exit_code() {
     let root: PathBuf = testdir!();
     let home = root.join("home");
@@ -104,6 +173,41 @@ fn forwards_each_command_argument_once() {
     let output = run_hoi(&["args", "alpha", "beta"], &root, &home);
     assert!(output.status.success());
     assert!(output_text(&output).0.ends_with("alpha|beta"));
+}
+
+#[cfg(not(windows))]
+#[test]
+fn custom_shell_entrypoint_preserves_first_argument() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "entrypoint: [sh, -c, '$@']\ncommands:\n  args:\n    cmd: 'printf ''%s|%s'' \"$1\" \"$2\"'\n",
+    )
+    .unwrap();
+    let output = run_hoi(&["args", "alpha", "beta"], &root, &home);
+    assert!(output.status.success(), "{}", output_text(&output).1);
+    assert!(output_text(&output).0.ends_with("alpha|beta"));
+}
+
+#[test]
+fn rejects_entrypoint_with_empty_executable() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "entrypoint: ['', -c]\ncommands:\n  hello:\n    cmd: echo hello\n",
+    )
+    .unwrap();
+    let output = run_hoi(&["validate"], &root, &home);
+    assert!(!output.status.success());
+    assert!(
+        output_text(&output)
+            .1
+            .contains("entrypoint must not be empty")
+    );
 }
 
 #[test]
@@ -150,7 +254,9 @@ fn unknown_command_suggests_similar_names() {
 
 #[test]
 fn missing_config_is_successful_and_suggests_init() {
-    let root: PathBuf = testdir!();
+    let root = std::env::temp_dir().join(format!("hoi-missing-config-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
     let home = root.join("home");
     fs::create_dir_all(&home).unwrap();
 
@@ -166,6 +272,7 @@ fn missing_config_is_successful_and_suggests_init() {
 
     let check = run_hoi(&["config", "--check"], &root, &home);
     assert!(!check.status.success());
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -215,11 +322,13 @@ fn executes_from_discovered_project_root() {
     let output = run_hoi(&["cwd"], &child, &home);
     assert!(output.status.success());
     let canonical_root = comparable_path(&root.canonicalize().unwrap());
-    assert!(output_text(&output)
-        .0
-        .replace('\\', "/")
-        .to_lowercase()
-        .contains(&canonical_root));
+    assert!(
+        output_text(&output)
+            .0
+            .replace('\\', "/")
+            .to_lowercase()
+            .contains(&canonical_root)
+    );
 }
 
 #[test]
@@ -248,6 +357,20 @@ fn init_can_create_global_config() {
     assert!(home.join(".hoi").join(".hoi.global.yml").is_file());
 }
 
+#[cfg(unix)]
+#[test]
+fn init_does_not_follow_dangling_symlink_without_force() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    let target = root.join("outside.yml");
+    std::os::unix::fs::symlink(&target, root.join(".hoi.yml")).unwrap();
+    let output = run_hoi(&["init"], &root, &home);
+    assert!(output.status.success());
+    assert!(!target.exists());
+    assert!(output_text(&output).0.contains("already exists"));
+}
+
 #[test]
 fn local_commands_override_global_commands() {
     let root: PathBuf = testdir!();
@@ -269,4 +392,30 @@ fn local_commands_override_global_commands() {
     let stdout = output_text(&output).0;
     assert!(stdout.contains("local"));
     assert!(!stdout.contains("global"));
+}
+
+#[cfg(not(windows))]
+#[test]
+fn local_config_inherits_global_entrypoint_and_description() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(home.join(".hoi")).unwrap();
+    fs::write(home.join(".hoi/.hoi.global.yml"), "description: inherited description\nentrypoint: [/bin/echo, inherited-entrypoint, '$@']\ncommands:\n  global:\n    cmd: global-script\n").unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "commands:\n  local:\n    cmd: local-script\n",
+    )
+    .unwrap();
+    let output = run_hoi(&["list"], &root, &home);
+    assert!(output.status.success());
+    assert!(output_text(&output).0.contains("inherited description"));
+    for name in ["local", "global"] {
+        let output = run_hoi(&[name], &root, &home);
+        assert!(output.status.success(), "{}", output_text(&output).1);
+        assert!(
+            output_text(&output)
+                .0
+                .contains(&format!("inherited-entrypoint {name}-script"))
+        );
+    }
 }

@@ -65,19 +65,18 @@ fn discover_config_paths(start: &Path, home: Option<&Path>) -> ConfigPaths {
 
 fn load_environment_files(config_dir: &Path) {
     let env_file = config_dir.join(".env");
-    if env_file.is_file() {
-        if let Err(error) = dotenvy::from_path(&env_file) {
-            eprintln!("Warning: failed to load {}: {error}", env_file.display());
-        }
+    if env_file.is_file() && dotenvy::from_path(&env_file).is_err() {
+        eprintln!(
+            "Warning: failed to load environment file {}",
+            env_file.display()
+        );
     }
     let env_local_file = config_dir.join(".env.local");
-    if env_local_file.is_file() {
-        if let Err(error) = dotenvy::from_path_override(&env_local_file) {
-            eprintln!(
-                "Warning: failed to load {}: {error}",
-                env_local_file.display()
-            );
-        }
+    if env_local_file.is_file() && dotenvy::from_path_override(&env_local_file).is_err() {
+        eprintln!(
+            "Warning: failed to load environment file {}",
+            env_local_file.display()
+        );
     }
 }
 
@@ -146,10 +145,32 @@ fn display_commands(hoi: &Hoi) {
     println!("Hoi Hoi!");
     println!("\nDid you know? {}", get_random_did_you_know());
     println!("\nUsage:\n  hoi [command|alias] [arguments...]");
-    if !hoi.description.is_empty() {
-        println!("\n{}", hoi.description);
+    if !hoi.description().is_empty() {
+        println!("\n{}", hoi.description());
     }
     println!("\n{table}\n");
+}
+
+#[cfg(any(windows, test))]
+fn validate_windows_shell_args(entrypoint: &str, args: &[String]) -> Result<(), HoiError> {
+    let executable = entrypoint
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(entrypoint)
+        .to_ascii_lowercase();
+    let is_shell = executable == "cmd"
+        || executable == "cmd.exe"
+        || executable.ends_with(".bat")
+        || executable.ends_with(".cmd");
+    if is_shell
+        && args.iter().any(|arg| {
+            arg.chars()
+                .any(|c| c.is_control() || "\"%!^&|<>".contains(c))
+        })
+    {
+        return Err(HoiError::Cli("arguments containing control characters or CMD metacharacters are not supported by Windows shell entrypoints; use a direct executable entrypoint".to_string()));
+    }
+    Ok(())
 }
 
 fn execute_command(
@@ -163,12 +184,15 @@ fn execute_command(
         .ok_or_else(|| hoi.unknown_command(command_name))?;
     println!("Running command {command_name}...");
 
-    let mut process_args = Vec::with_capacity(hoi.entrypoint.len() + args.len() + 1);
+    let configured_entrypoint = hoi.entrypoint();
+    let mut process_args = Vec::with_capacity(configured_entrypoint.len() + args.len() + 1);
     let mut placeholder_found = false;
-    for arg in &hoi.entrypoint {
+    let mut placeholder_index = None;
+    for (index, arg) in configured_entrypoint.iter().enumerate() {
         if arg == "$@" {
             process_args.push(command.cmd.clone());
             placeholder_found = true;
+            placeholder_index = Some(index);
         } else {
             process_args.push(arg.clone());
         }
@@ -183,6 +207,11 @@ fn execute_command(
     if !process_args.is_empty() {
         process_args.remove(0);
     }
+    if placeholder_found && placeholder_index == Some(configured_entrypoint.len() - 1) {
+        process_args.push(command_name.to_string());
+    }
+    #[cfg(windows)]
+    validate_windows_shell_args(&entrypoint, args)?;
     process_args.extend_from_slice(args);
 
     let status = Command::new(entrypoint)
@@ -211,11 +240,6 @@ fn create_init_config(global: bool, force: bool) -> Result<(), HoiError> {
         env::current_dir()?.join(".hoi.yml")
     };
 
-    if path.exists() && !force {
-        println!("A configuration already exists at {}", path.display());
-        println!("Use --force to replace it.");
-        return Ok(());
-    }
     let template = r#"version: 1
 description: "Custom commands"
 commands:
@@ -224,8 +248,24 @@ commands:
     alias: hi
     description: "A simple example command."
 "#;
-    let mut file = fs::File::create(&path)?;
-    file.write_all(template.as_bytes())?;
+    if !force {
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(mut file) => file.write_all(template.as_bytes())?,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                println!("A configuration already exists at {}", path.display());
+                println!("Use --force to replace it.");
+                return Ok(());
+            }
+            Err(error) => return Err(error.into()),
+        }
+    } else {
+        let mut file = fs::File::create(&path)?;
+        file.write_all(template.as_bytes())?;
+    }
     println!("Created configuration at {}", path.display());
     Ok(())
 }
@@ -342,6 +382,48 @@ mod tests {
     use utilities::copy_fixture;
 
     #[test]
+    fn windows_shell_rejects_metacharacters_without_disclosing_arguments() {
+        for shell in [
+            "cmd",
+            "CMD.EXE",
+            r"C:\Windows\System32\cmd.exe",
+            "script.bat",
+            "script.CMD",
+        ] {
+            for payload in [
+                "&echo injected",
+                "x|echo injected",
+                ">file",
+                "<file",
+                "%PATH%",
+                "!VAR!",
+                "^x",
+                "\"x",
+                "x\nx",
+                "x\rx",
+                "x\tx",
+                "x\0x",
+            ] {
+                let error = validate_windows_shell_args(shell, &[payload.into()]).unwrap_err();
+                assert!(!error.to_string().contains(payload));
+            }
+            assert!(
+                validate_windows_shell_args(
+                    shell,
+                    &[
+                        "ordinary".into(),
+                        "two words".into(),
+                        "".into(),
+                        r"C:\some path\".into()
+                    ]
+                )
+                .is_ok()
+            );
+        }
+        assert!(validate_windows_shell_args("program.exe", &["&literal".into()]).is_ok());
+    }
+
+    #[test]
     fn finds_config_from_child_directory_without_changing_cwd() {
         let root: PathBuf = testdir!();
         let child = root.join("src").join("nested");
@@ -371,6 +453,6 @@ mod tests {
         let temp_dir: PathBuf = testdir!();
         copy_fixture(".hoi.with_entrypoint.yml", &temp_dir, ".hoi.yml");
         let hoi = load_config(&temp_dir.join(".hoi.yml")).unwrap();
-        assert_eq!(hoi.entrypoint, vec!["sh", "-c", "$@"]);
+        assert_eq!(hoi.entrypoint(), vec!["sh", "-c", "$@"]);
     }
 }
