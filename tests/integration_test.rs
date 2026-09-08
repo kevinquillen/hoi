@@ -175,6 +175,39 @@ fn forwards_each_command_argument_once() {
     assert!(output_text(&output).0.ends_with("alpha|beta"));
 }
 
+#[cfg(not(windows))]
+#[test]
+fn custom_shell_entrypoint_preserves_first_argument() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "entrypoint: [sh, -c, '$@']\ncommands:\n  args:\n    cmd: 'printf ''%s|%s'' \"$1\" \"$2\"'\n",
+    )
+    .unwrap();
+    let output = run_hoi(&["args", "alpha", "beta"], &root, &home);
+    assert!(output.status.success(), "{}", output_text(&output).1);
+    assert!(output_text(&output).0.ends_with("alpha|beta"));
+}
+
+#[test]
+fn rejects_entrypoint_with_empty_executable() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "entrypoint: ['', -c]\ncommands:\n  hello:\n    cmd: echo hello\n",
+    )
+    .unwrap();
+    let output = run_hoi(&["validate"], &root, &home);
+    assert!(!output.status.success());
+    assert!(output_text(&output)
+        .1
+        .contains("entrypoint must not be empty"));
+}
+
 #[test]
 fn reports_malformed_config_with_its_path() {
     let root: PathBuf = testdir!();

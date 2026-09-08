@@ -191,10 +191,12 @@ fn execute_command(
     let configured_entrypoint = hoi.entrypoint();
     let mut process_args = Vec::with_capacity(configured_entrypoint.len() + args.len() + 1);
     let mut placeholder_found = false;
-    for arg in &configured_entrypoint {
+    let mut placeholder_index = None;
+    for (index, arg) in configured_entrypoint.iter().enumerate() {
         if arg == "$@" {
             process_args.push(command.cmd.clone());
             placeholder_found = true;
+            placeholder_index = Some(index);
         } else {
             process_args.push(arg.clone());
         }
@@ -208,6 +210,9 @@ fn execute_command(
         .ok_or_else(|| HoiError::Cli("command entrypoint is empty".to_string()))?;
     if !process_args.is_empty() {
         process_args.remove(0);
+    }
+    if placeholder_found && placeholder_index == Some(configured_entrypoint.len() - 1) {
+        process_args.push(command_name.to_string());
     }
     #[cfg(windows)]
     validate_windows_shell_args(&entrypoint, args)?;

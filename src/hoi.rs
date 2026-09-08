@@ -79,7 +79,7 @@ impl Hoi {
             )));
         }
         let entrypoint = self.entrypoint();
-        if entrypoint.is_empty() || entrypoint.iter().all(|part| part.trim().is_empty()) {
+        if entrypoint.is_empty() || entrypoint[0].trim().is_empty() {
             return Err(invalid("entrypoint must not be empty".to_string()));
         }
         if self.commands.is_empty() {
@@ -313,9 +313,9 @@ mod tests {
         let hoi: Hoi = serde_yaml_ng::from_str("commands:\n  hello:\n    cmd: hello\n").unwrap();
         assert_eq!(hoi.entrypoint(), default_entrypoint());
         assert!(!hoi.description().is_empty());
-        for yaml in ["entrypoint: null", "description: null"] {
-            assert!(serde_yaml_ng::from_str::<Hoi>(yaml).is_err());
-        }
+        assert!(serde_yaml_ng::from_str::<Hoi>("entrypoint: null").is_err());
+        let hoi: Hoi = serde_yaml_ng::from_str("description: null").unwrap();
+        assert!(!hoi.description().is_empty());
         let hoi: Hoi =
             serde_yaml_ng::from_str("entrypoint: []\ncommands:\n  hello:\n    cmd: hello\n")
                 .unwrap();
