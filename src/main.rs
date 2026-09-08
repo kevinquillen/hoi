@@ -244,11 +244,6 @@ fn create_init_config(global: bool, force: bool) -> Result<(), HoiError> {
         env::current_dir()?.join(".hoi.yml")
     };
 
-    if path.exists() && !force {
-        println!("A configuration already exists at {}", path.display());
-        println!("Use --force to replace it.");
-        return Ok(());
-    }
     let template = r#"version: 1
 description: "Custom commands"
 commands:
@@ -257,8 +252,24 @@ commands:
     alias: hi
     description: "A simple example command."
 "#;
-    let mut file = fs::File::create(&path)?;
-    file.write_all(template.as_bytes())?;
+    if !force {
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(mut file) => file.write_all(template.as_bytes())?,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                println!("A configuration already exists at {}", path.display());
+                println!("Use --force to replace it.");
+                return Ok(());
+            }
+            Err(error) => return Err(error.into()),
+        }
+    } else {
+        let mut file = fs::File::create(&path)?;
+        file.write_all(template.as_bytes())?;
+    }
     println!("Created configuration at {}", path.display());
     Ok(())
 }

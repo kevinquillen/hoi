@@ -350,6 +350,20 @@ fn init_can_create_global_config() {
     assert!(home.join(".hoi").join(".hoi.global.yml").is_file());
 }
 
+#[cfg(unix)]
+#[test]
+fn init_does_not_follow_dangling_symlink_without_force() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    let target = root.join("outside.yml");
+    std::os::unix::fs::symlink(&target, root.join(".hoi.yml")).unwrap();
+    let output = run_hoi(&["init"], &root, &home);
+    assert!(output.status.success());
+    assert!(!target.exists());
+    assert!(output_text(&output).0.contains("already exists"));
+}
+
 #[test]
 fn local_commands_override_global_commands() {
     let root: PathBuf = testdir!();
