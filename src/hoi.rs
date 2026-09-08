@@ -34,11 +34,11 @@ pub struct Hoi {
     #[serde(default = "default_version", deserialize_with = "deserialize_version")]
     pub(crate) version: String,
 
-    #[serde(default = "default_description")]
-    pub(crate) description: String,
+    #[serde(default, deserialize_with = "deserialize_present")]
+    pub(crate) description: Option<String>,
 
-    #[serde(default = "default_entrypoint")]
-    pub(crate) entrypoint: Vec<String>,
+    #[serde(default, deserialize_with = "deserialize_present")]
+    pub(crate) entrypoint: Option<Vec<String>>,
 
     #[serde(default)]
     pub(crate) commands: IndexMap<String, UserCommand>,
@@ -48,14 +48,24 @@ impl Default for Hoi {
     fn default() -> Self {
         Self {
             version: default_version(),
-            description: String::new(),
-            entrypoint: default_entrypoint(),
+            description: None,
+            entrypoint: None,
             commands: IndexMap::new(),
         }
     }
 }
 
 impl Hoi {
+    pub(crate) fn entrypoint(&self) -> Vec<String> {
+        self.entrypoint.clone().unwrap_or_else(default_entrypoint)
+    }
+
+    pub(crate) fn description(&self) -> &str {
+        self.description
+            .as_deref()
+            .unwrap_or("Hoi is designed to help teams standardize their development workflows.")
+    }
+
     pub(crate) fn validate(&self, path: PathBuf) -> Result<(), HoiError> {
         let invalid = |message: String| HoiError::ConfigValidation {
             path: path.clone(),
@@ -68,7 +78,8 @@ impl Hoi {
                 self.version
             )));
         }
-        if self.entrypoint.is_empty() || self.entrypoint.iter().all(|part| part.trim().is_empty()) {
+        let entrypoint = self.entrypoint();
+        if entrypoint.is_empty() || entrypoint.iter().all(|part| part.trim().is_empty()) {
             return Err(invalid("entrypoint must not be empty".to_string()));
         }
         if self.commands.is_empty() {
@@ -107,10 +118,10 @@ impl Hoi {
 
     pub(crate) fn merge(&mut self, other: Hoi) {
         self.version = other.version;
-        if !other.entrypoint.is_empty() {
+        if other.entrypoint.is_some() {
             self.entrypoint = other.entrypoint;
         }
-        if !other.description.is_empty() {
+        if other.description.is_some() {
             self.description = other.description;
         }
         self.commands.extend(other.commands);
@@ -174,8 +185,12 @@ fn is_reserved(value: &str) -> bool {
         )
 }
 
-fn default_description() -> String {
-    "Hoi is designed to help teams standardize their development workflows.".to_string()
+fn deserialize_present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 
 fn default_version() -> String {
@@ -275,8 +290,36 @@ mod tests {
     #[test]
     fn default_entrypoint_is_not_empty() {
         let hoi = Hoi::default();
-        assert!(!hoi.entrypoint.is_empty());
+        assert!(!hoi.entrypoint().is_empty());
         assert_eq!(hoi.version, "1");
+    }
+
+    #[test]
+    fn merge_preserves_omitted_settings_and_applies_explicit_overrides() {
+        let mut global: Hoi = serde_yaml_ng::from_str("description: global\nentrypoint: [custom, '$@']\ncommands:\n  hello:\n    cmd: hello\n").unwrap();
+        let local: Hoi = serde_yaml_ng::from_str("commands:\n  local:\n    cmd: local\n").unwrap();
+        global.merge(local);
+        assert_eq!(global.description(), "global");
+        assert_eq!(global.entrypoint(), ["custom", "$@"]);
+        let local: Hoi = serde_yaml_ng::from_str("description: ''\nentrypoint: [replacement, '$@']\ncommands:\n  local:\n    cmd: updated\n").unwrap();
+        global.merge(local);
+        assert_eq!(global.description(), "");
+        assert_eq!(global.entrypoint(), ["replacement", "$@"]);
+        assert_eq!(global.commands["local"].cmd, "updated");
+    }
+
+    #[test]
+    fn omitted_settings_get_defaults_but_explicit_invalid_settings_fail() {
+        let hoi: Hoi = serde_yaml_ng::from_str("commands:\n  hello:\n    cmd: hello\n").unwrap();
+        assert_eq!(hoi.entrypoint(), default_entrypoint());
+        assert!(!hoi.description().is_empty());
+        for yaml in ["entrypoint: null", "description: null"] {
+            assert!(serde_yaml_ng::from_str::<Hoi>(yaml).is_err());
+        }
+        let hoi: Hoi =
+            serde_yaml_ng::from_str("entrypoint: []\ncommands:\n  hello:\n    cmd: hello\n")
+                .unwrap();
+        assert!(hoi.validate(PathBuf::from("test.yml")).is_err());
     }
 
     #[test]
@@ -355,7 +398,7 @@ commands:
         );
 
         let mut local = Hoi {
-            description: "local desc".into(),
+            description: Some("local desc".into()),
             ..Hoi::default()
         };
         local.commands.insert(
@@ -368,7 +411,7 @@ commands:
         );
 
         global.merge(local);
-        assert_eq!(global.description, "local desc");
+        assert_eq!(global.description(), "local desc");
         assert_eq!(global.commands.get("hello").unwrap().cmd, "echo local");
         assert_eq!(
             global.commands.get("hello").unwrap().alias.as_deref(),

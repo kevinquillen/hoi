@@ -339,3 +339,27 @@ fn local_commands_override_global_commands() {
     assert!(stdout.contains("local"));
     assert!(!stdout.contains("global"));
 }
+
+#[cfg(not(windows))]
+#[test]
+fn local_config_inherits_global_entrypoint_and_description() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(home.join(".hoi")).unwrap();
+    fs::write(home.join(".hoi/.hoi.global.yml"), "description: inherited description\nentrypoint: [/bin/echo, inherited-entrypoint, '$@']\ncommands:\n  global:\n    cmd: global-script\n").unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "commands:\n  local:\n    cmd: local-script\n",
+    )
+    .unwrap();
+    let output = run_hoi(&["list"], &root, &home);
+    assert!(output.status.success());
+    assert!(output_text(&output).0.contains("inherited description"));
+    for name in ["local", "global"] {
+        let output = run_hoi(&[name], &root, &home);
+        assert!(output.status.success(), "{}", output_text(&output).1);
+        assert!(output_text(&output)
+            .0
+            .contains(&format!("inherited-entrypoint {name}-script")));
+    }
+}

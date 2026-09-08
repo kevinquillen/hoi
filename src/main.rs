@@ -149,8 +149,8 @@ fn display_commands(hoi: &Hoi) {
     println!("Hoi Hoi!");
     println!("\nDid you know? {}", get_random_did_you_know());
     println!("\nUsage:\n  hoi [command|alias] [arguments...]");
-    if !hoi.description.is_empty() {
-        println!("\n{}", hoi.description);
+    if !hoi.description().is_empty() {
+        println!("\n{}", hoi.description());
     }
     println!("\n{table}\n");
 }
@@ -188,9 +188,10 @@ fn execute_command(
         .ok_or_else(|| hoi.unknown_command(command_name))?;
     println!("Running command {command_name}...");
 
-    let mut process_args = Vec::with_capacity(hoi.entrypoint.len() + args.len() + 1);
+    let configured_entrypoint = hoi.entrypoint();
+    let mut process_args = Vec::with_capacity(configured_entrypoint.len() + args.len() + 1);
     let mut placeholder_found = false;
-    for arg in &hoi.entrypoint {
+    for arg in &configured_entrypoint {
         if arg == "$@" {
             process_args.push(command.cmd.clone());
             placeholder_found = true;
@@ -438,6 +439,6 @@ mod tests {
         let temp_dir: PathBuf = testdir!();
         copy_fixture(".hoi.with_entrypoint.yml", &temp_dir, ".hoi.yml");
         let hoi = load_config(&temp_dir.join(".hoi.yml")).unwrap();
-        assert_eq!(hoi.entrypoint, vec!["sh", "-c", "$@"]);
+        assert_eq!(hoi.entrypoint(), vec!["sh", "-c", "$@"]);
     }
 }
