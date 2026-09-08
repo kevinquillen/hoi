@@ -37,14 +37,14 @@ brew install kevinquillen/tap/hoi
 ### Install script (macOS and Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash
 ```
 
 Install a specific version or directory:
 
 ```bash
-HOI_VERSION=0.7.1 curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh
-curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | sh -s -- --dir ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash -s -- --version 0.7.1
+curl -fsSL https://raw.githubusercontent.com/kevinquillen/hoi/main/scripts/install.sh | bash -s -- --dir ~/.local/bin
 ```
 
 ### Prebuilt binaries
