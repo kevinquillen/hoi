@@ -71,6 +71,43 @@ fn loads_environment_files() {
 }
 
 #[test]
+fn malformed_environment_files_do_not_disclose_values() {
+    let root: PathBuf = testdir!();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        root.join(".hoi.yml"),
+        "commands:\n  hello:\n    cmd: echo hello\n",
+    )
+    .unwrap();
+
+    for filename in [".env", ".env.local"] {
+        fs::write(
+            root.join(filename),
+            "HOI_TEST_TOKEN=\"secret-that-must-not-be-logged\n",
+        )
+        .unwrap();
+        for args in [
+            &["list"][..],
+            &["validate"],
+            &["config", "--check"],
+            &["hello"],
+        ] {
+            let output = run_hoi(args, &root, &home);
+            let (stdout, stderr) = output_text(&output);
+            assert!(output.status.success(), "{stderr}");
+            assert!(stderr.contains("Warning: failed to load environment file"));
+            assert!(stderr.contains(filename));
+            for text in [stdout, stderr] {
+                assert!(!text.contains("secret-that-must-not-be-logged"));
+                assert!(!text.contains("HOI_TEST_TOKEN"));
+            }
+        }
+        fs::remove_file(root.join(filename)).unwrap();
+    }
+}
+
+#[test]
 fn propagates_child_exit_code() {
     let root: PathBuf = testdir!();
     let home = root.join("home");

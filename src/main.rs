@@ -66,15 +66,18 @@ fn discover_config_paths(start: &Path, home: Option<&Path>) -> ConfigPaths {
 fn load_environment_files(config_dir: &Path) {
     let env_file = config_dir.join(".env");
     if env_file.is_file() {
-        if let Err(error) = dotenvy::from_path(&env_file) {
-            eprintln!("Warning: failed to load {}: {error}", env_file.display());
+        if dotenvy::from_path(&env_file).is_err() {
+            eprintln!(
+                "Warning: failed to load environment file {}",
+                env_file.display()
+            );
         }
     }
     let env_local_file = config_dir.join(".env.local");
     if env_local_file.is_file() {
-        if let Err(error) = dotenvy::from_path_override(&env_local_file) {
+        if dotenvy::from_path_override(&env_local_file).is_err() {
             eprintln!(
-                "Warning: failed to load {}: {error}",
+                "Warning: failed to load environment file {}",
                 env_local_file.display()
             );
         }
