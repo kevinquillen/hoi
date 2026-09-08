@@ -411,16 +411,18 @@ mod tests {
                 let error = validate_windows_shell_args(shell, &[payload.into()]).unwrap_err();
                 assert!(!error.to_string().contains(payload));
             }
-            assert!(validate_windows_shell_args(
-                shell,
-                &[
-                    "ordinary".into(),
-                    "two words".into(),
-                    "".into(),
-                    r"C:\some path\".into()
-                ]
-            )
-            .is_ok());
+            assert!(
+                validate_windows_shell_args(
+                    shell,
+                    &[
+                        "ordinary".into(),
+                        "two words".into(),
+                        "".into(),
+                        r"C:\some path\".into()
+                    ]
+                )
+                .is_ok()
+            );
         }
         assert!(validate_windows_shell_args("program.exe", &["&literal".into()]).is_ok());
     }

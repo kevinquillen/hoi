@@ -203,9 +203,11 @@ fn rejects_entrypoint_with_empty_executable() {
     .unwrap();
     let output = run_hoi(&["validate"], &root, &home);
     assert!(!output.status.success());
-    assert!(output_text(&output)
-        .1
-        .contains("entrypoint must not be empty"));
+    assert!(
+        output_text(&output)
+            .1
+            .contains("entrypoint must not be empty")
+    );
 }
 
 #[test]
@@ -252,7 +254,9 @@ fn unknown_command_suggests_similar_names() {
 
 #[test]
 fn missing_config_is_successful_and_suggests_init() {
-    let root: PathBuf = testdir!();
+    let root = std::env::temp_dir().join(format!("hoi-missing-config-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
     let home = root.join("home");
     fs::create_dir_all(&home).unwrap();
 
@@ -268,6 +272,7 @@ fn missing_config_is_successful_and_suggests_init() {
 
     let check = run_hoi(&["config", "--check"], &root, &home);
     assert!(!check.status.success());
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -317,11 +322,13 @@ fn executes_from_discovered_project_root() {
     let output = run_hoi(&["cwd"], &child, &home);
     assert!(output.status.success());
     let canonical_root = comparable_path(&root.canonicalize().unwrap());
-    assert!(output_text(&output)
-        .0
-        .replace('\\', "/")
-        .to_lowercase()
-        .contains(&canonical_root));
+    assert!(
+        output_text(&output)
+            .0
+            .replace('\\', "/")
+            .to_lowercase()
+            .contains(&canonical_root)
+    );
 }
 
 #[test]
@@ -405,8 +412,10 @@ fn local_config_inherits_global_entrypoint_and_description() {
     for name in ["local", "global"] {
         let output = run_hoi(&[name], &root, &home);
         assert!(output.status.success(), "{}", output_text(&output).1);
-        assert!(output_text(&output)
-            .0
-            .contains(&format!("inherited-entrypoint {name}-script")));
+        assert!(
+            output_text(&output)
+                .0
+                .contains(&format!("inherited-entrypoint {name}-script"))
+        );
     }
 }

@@ -250,6 +250,8 @@ expectations, and the release process.
 
 ### Building
 
+Building from source requires Rust 1.85 or newer.
+
 ```bash
 cargo build
 ```

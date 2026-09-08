@@ -1,7 +1,7 @@
 use crate::user_command::UserCommand;
 use indexmap::IndexMap;
-use serde::de::{self, Deserializer, Visitor};
 use serde::Deserialize;
+use serde::de::{self, Deserializer, Visitor};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
@@ -23,7 +23,9 @@ pub enum HoiError {
     CommandNotFound { name: String, hint: String },
     #[error("{0}")]
     Cli(String),
-    #[error("No .hoi.yml file found in current directory or parent directories, and no global config at ~/.hoi/.hoi.global.yml\nRun `hoi init` to create one.")]
+    #[error(
+        "No .hoi.yml file found in current directory or parent directories, and no global config at ~/.hoi/.hoi.global.yml\nRun `hoi init` to create one."
+    )]
     ConfigNotFound,
     #[error("Unable to execute command: {0}")]
     CommandIo(#[from] io::Error),
