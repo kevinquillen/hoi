@@ -22,9 +22,23 @@ jobs:
           fi
           echo "Tag v${tag} matches Cargo.toml ${cargo_version}"
 
+  verify:
+    name: Verify release commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Run checks
+        run: |
+          cargo fmt -- --check
+          cargo clippy --locked --all-targets --all-features -- -D warnings
+          cargo test --locked
+
   release:
     name: Release - ${{ matrix.platform.os-name }}
-    needs: check-version
+    needs: [check-version, verify]
     permissions:
       contents: write
     strategy:
